@@ -8,13 +8,12 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import {
-  Plus, Pin, Edit, Trash2, MessageCircle, ArrowBigUp, ArrowBigDown, Reply as ReplyIcon,
-  Search as SearchIcon
+  Plus, Pin, Edit, Trash2, MessageCircle, ArrowBigUp, Reply as ReplyIcon,
+  Search as SearchIcon, EyeOff
 } from "lucide-react";
 
 interface ForumPageProps {
   userRole: "parent" | "teacher";
-  // optional display name for the current user (fallbacks provided)
   currentUserName?: string;
 }
 
@@ -29,8 +28,9 @@ type Comment = {
   authorRole: "parent" | "teacher";
   authorName: string;
   createdAt: string; // ISO
-  score: number;
-  userVote: -1 | 0 | 1;
+  upvotes: number;      // ✅ upvotes only
+  userUpvoted?: boolean; // persisted per-browser demo
+  hidden?: boolean;     // ✅ teacher can hide/unhide
 };
 
 type Post = {
@@ -42,8 +42,8 @@ type Post = {
   authorName: string;
   createdAt: string; // ISO
   isPinned: boolean;
-  score: number;
-  userVote: -1 | 0 | 1;
+  upvotes: number;        // ✅ upvotes only
+  userUpvoted?: boolean;  // persisted per-browser demo
   comments: Comment[];
 };
 
@@ -70,12 +70,13 @@ const fmt = (iso: string) => {
   return d.toLocaleDateString();
 };
 
-// Simple “hot” score: score / (hours + 2)^1.5 (pinned still comes first)
+// Simple “hot” score: upvotes / (hours + 2)^1.5 (pinned still comes first)
 const hotness = (p: Post) => {
   const hours = Math.max(0, (Date.now() - new Date(p.createdAt).getTime()) / 36e5);
-  return p.score / Math.pow(hours + 2, 1.5);
+  return (p.upvotes || 0) / Math.pow(hours + 2, 1.5);
 };
 
+// seed data in the new shape
 const seed = (role: "parent" | "teacher", name?: string): Post[] => [
   {
     id: "p1",
@@ -86,8 +87,8 @@ const seed = (role: "parent" | "teacher", name?: string): Post[] => [
     authorName: "Parent A",
     createdAt: new Date(Date.now() - 1000 * 60 * 60 * 3).toISOString(),
     isPinned: true,
-    score: 5,
-    userVote: 0,
+    upvotes: 5,
+    userUpvoted: false,
     comments: [
       {
         id: "c1",
@@ -96,8 +97,9 @@ const seed = (role: "parent" | "teacher", name?: string): Post[] => [
         authorRole: "parent",
         authorName: "Parent B",
         createdAt: nowISO(),
-        score: 3,
-        userVote: 0,
+        upvotes: 3,
+        userUpvoted: false,
+        hidden: false,
       },
       {
         id: "c2",
@@ -106,8 +108,9 @@ const seed = (role: "parent" | "teacher", name?: string): Post[] => [
         authorRole: "teacher",
         authorName: "Ms. Bee",
         createdAt: nowISO(),
-        score: 2,
-        userVote: 0,
+        upvotes: 2,
+        userUpvoted: false,
+        hidden: false,
       },
     ],
   },
@@ -120,8 +123,8 @@ const seed = (role: "parent" | "teacher", name?: string): Post[] => [
     authorName: "Ms. Bee",
     createdAt: new Date(Date.now() - 1000 * 60 * 60 * 24).toISOString(),
     isPinned: false,
-    score: 2,
-    userVote: 0,
+    upvotes: 2,
+    userUpvoted: false,
     comments: [],
   },
   {
@@ -133,11 +136,44 @@ const seed = (role: "parent" | "teacher", name?: string): Post[] => [
     authorName: name || (role === "teacher" ? "Teacher" : "Parent"),
     createdAt: new Date(Date.now() - 1000 * 60 * 90).toISOString(),
     isPinned: false,
-    score: 1,
-    userVote: 0,
+    upvotes: 1,
+    userUpvoted: false,
     comments: [],
   },
 ];
+
+// ---- migration from old score/userVote to upvotes/userUpvoted
+function migrate(raw: any): Post[] {
+  const posts = Array.isArray(raw) ? raw : [];
+  return posts.map((p: any) => {
+    const upvotes = typeof p.upvotes === "number" ? p.upvotes : Math.max(0, Number(p.score) || 0);
+    const userUpvoted = typeof p.userUpvoted === "boolean" ? p.userUpvoted : p.userVote === 1;
+    const comments: Comment[] = (p.comments || []).map((c: any) => ({
+      id: c.id,
+      parentId: c.parentId ?? null,
+      body: c.body ?? "",
+      authorRole: c.authorRole === "teacher" ? "teacher" : "parent",
+      authorName: c.authorName ?? "User",
+      createdAt: c.createdAt ?? nowISO(),
+      upvotes: typeof c.upvotes === "number" ? c.upvotes : Math.max(0, Number(c.score) || 0),
+      userUpvoted: typeof c.userUpvoted === "boolean" ? c.userUpvoted : c.userVote === 1,
+      hidden: Boolean(c.hidden) || false,
+    }));
+    return {
+      id: p.id,
+      title: p.title ?? "",
+      body: p.body ?? "",
+      tag: (p.tag as Tag) ?? "general",
+      authorRole: p.authorRole === "teacher" ? "teacher" : "parent",
+      authorName: p.authorName ?? "User",
+      createdAt: p.createdAt ?? nowISO(),
+      isPinned: Boolean(p.isPinned),
+      upvotes,
+      userUpvoted,
+      comments,
+    } as Post;
+  });
+}
 
 export const AnnouncementPage = ({ userRole, currentUserName }: ForumPageProps) => {
   const displayName = currentUserName || (userRole === "teacher" ? "Teacher" : "Parent");
@@ -164,7 +200,8 @@ export const AnnouncementPage = ({ userRole, currentUserName }: ForumPageProps) 
     const raw = localStorage.getItem(STORAGE_KEY);
     if (raw) {
       try {
-        setPosts(JSON.parse(raw) as Post[]);
+        const parsed = JSON.parse(raw);
+        setPosts(migrate(parsed));
         return;
       } catch { /* ignore */ }
     }
@@ -183,42 +220,38 @@ export const AnnouncementPage = ({ userRole, currentUserName }: ForumPageProps) 
       .filter(p => (q ? p.title.toLowerCase().includes(q) || p.body.toLowerCase().includes(q) : true));
 
     const sorted = [...visible].sort((a, b) => {
-      // Pinned first always
-      if (a.isPinned !== b.isPinned) return a.isPinned ? -1 : 1;
-
+      if (a.isPinned !== b.isPinned) return a.isPinned ? -1 : 1; // pinned first
       if (sortKey === "new") {
         return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
       }
       if (sortKey === "top") {
-        return b.score - a.score || new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
+        return (b.upvotes || 0) - (a.upvotes || 0) ||
+               new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
       }
-      // hot
-      return hotness(b) - hotness(a);
+      return hotness(b) - hotness(a); // hot
     });
 
     return sorted;
   }, [posts, query, filterTag, sortKey]);
 
-  // Voting helpers
-  function togglePostVote(id: string, dir: 1 | -1) {
+  // Voting
+  function togglePostUpvote(id: string) {
     setPosts(prev =>
       prev.map(p => {
         if (p.id !== id) return p;
-        const next = p.userVote === dir ? 0 : dir;
-        const delta = next - p.userVote; // -1/0/1 minus -1/0/1
-        return { ...p, userVote: next as -1 | 0 | 1, score: p.score + delta };
+        const nextUp = p.userUpvoted ? (p.upvotes || 0) - 1 : (p.upvotes || 0) + 1;
+        return { ...p, upvotes: Math.max(0, nextUp), userUpvoted: !p.userUpvoted };
       })
     );
   }
-  function toggleCommentVote(postId: string, commentId: string, dir: 1 | -1) {
+  function toggleCommentUpvote(postId: string, commentId: string) {
     setPosts(prev =>
       prev.map(p => {
         if (p.id !== postId) return p;
         const comments = p.comments.map(c => {
           if (c.id !== commentId) return c;
-          const next = c.userVote === dir ? 0 : dir;
-          const delta = next - c.userVote;
-          return { ...c, userVote: next as -1 | 0 | 1, score: c.score + delta };
+          const nextUp = c.userUpvoted ? (c.upvotes || 0) - 1 : (c.upvotes || 0) + 1;
+          return { ...c, upvotes: Math.max(0, nextUp), userUpvoted: !c.userUpvoted };
         });
         return { ...p, comments };
       })
@@ -258,8 +291,8 @@ export const AnnouncementPage = ({ userRole, currentUserName }: ForumPageProps) 
         authorName: displayName,
         createdAt: nowISO(),
         isPinned: false,
-        score: 0,
-        userVote: 0,
+        upvotes: 0,
+        userUpvoted: false,
         comments: [],
       };
       setPosts(prev => [newPost, ...prev]);
@@ -294,8 +327,9 @@ export const AnnouncementPage = ({ userRole, currentUserName }: ForumPageProps) 
       authorRole: userRole,
       authorName: displayName,
       createdAt: nowISO(),
-      score: 0,
-      userVote: 0,
+      upvotes: 0,
+      userUpvoted: false,
+      hidden: false,
     };
     setPosts(prev =>
       prev.map(p => (p.id === replyFor.postId ? { ...p, comments: [...p.comments, newComment] } : p))
@@ -311,7 +345,6 @@ export const AnnouncementPage = ({ userRole, currentUserName }: ForumPageProps) 
       prev.map(p => {
         if (p.id !== postId) return p;
         const delSet = new Set<string>([comment.id]);
-        // collect descendants
         let changed = true;
         while (changed) {
           changed = false;
@@ -326,46 +359,106 @@ export const AnnouncementPage = ({ userRole, currentUserName }: ForumPageProps) 
       })
     );
   }
+  function toggleCommentHidden(postId: string, commentId: string) {
+    if (userRole !== "teacher") return;
+    setPosts(prev =>
+      prev.map(p => {
+        if (p.id !== postId) return p;
+        const comments = p.comments.map(c =>
+          c.id === commentId ? { ...c, hidden: !c.hidden } : c
+        );
+        return { ...p, comments };
+      })
+    );
+  }
 
+  // Render comments with hide rules
   function renderCommentsTree(p: Post, parentId: string | null = null, depth = 0) {
     const nodes = p.comments.filter(c => c.parentId === parentId);
     if (!nodes.length) return null;
+
     return (
       <ul className={`space-y-3 ${depth ? "pl-4 border-l" : ""}`}>
-        {nodes.map(c => (
-          <li key={c.id} className="flex items-start gap-3">
-            <div className="flex flex-col items-center pt-1">
-              <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => toggleCommentVote(p.id, c.id, 1)} title="Upvote">
-                <ArrowBigUp className={`h-4 w-4 ${c.userVote === 1 ? "text-emerald-600" : ""}`} />
-              </Button>
-              <div className="text-sm">{c.score}</div>
-              <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => toggleCommentVote(p.id, c.id, -1)} title="Downvote">
-                <ArrowBigDown className={`h-4 w-4 ${c.userVote === -1 ? "text-red-600" : ""}`} />
-              </Button>
-            </div>
-
-            <div className="flex-1 min-w-0">
-              <div className="flex flex-wrap items-center gap-2 text-sm">
-                <span className="font-medium">{c.authorName}</span>
-                <Badge variant="outline" className="capitalize">{c.authorRole}</Badge>
-                <span className="text-xs text-muted-foreground">{fmt(c.createdAt)}</span>
-              </div>
-              <div className="text-sm mt-1 whitespace-pre-wrap break-words">{c.body}</div>
-              <div className="mt-2 flex items-center gap-2">
-                <Button variant="ghost" size="sm" className="h-7 px-2 text-xs" onClick={() => openReply(p.id, c.id)}>
-                  <ReplyIcon className="h-3.5 w-3.5 mr-1" /> Reply
+        {nodes.map(c => {
+          const hidden = c.hidden === true;
+          const hiddenForViewer = hidden && userRole !== "teacher";
+          return (
+            <li key={c.id} className="flex items-start gap-3">
+              {/* votes (up only) */}
+              <div className="flex flex-col items-center pt-1">
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="h-7 w-7"
+                  onClick={() => !hiddenForViewer && toggleCommentUpvote(p.id, c.id)}
+                  title="Upvote"
+                  disabled={hiddenForViewer}
+                >
+                  <ArrowBigUp className={`h-4 w-4 ${c.userUpvoted ? "text-emerald-600" : ""}`} />
                 </Button>
-                {(userRole === "teacher" || (displayName === c.authorName && userRole === c.authorRole)) && (
-                  <Button variant="ghost" size="sm" className="h-7 px-2 text-xs text-red-600" onClick={() => removeComment(p.id, c)}>
-                    <Trash2 className="h-3.5 w-3.5 mr-1" /> Delete
-                  </Button>
-                )}
+                <div className="text-sm">{c.upvotes ?? 0}</div>
               </div>
 
-              {renderCommentsTree(p, c.id, depth + 1)}
-            </div>
-          </li>
-        ))}
+              <div className="flex-1 min-w-0">
+                <div className="flex flex-wrap items-center gap-2 text-sm">
+                  <span className="font-medium">{c.authorName}</span>
+                  <Badge variant="outline" className="capitalize">{c.authorRole}</Badge>
+                  {hidden && <Badge variant="destructive">Hidden</Badge>}
+                  <span className="text-xs text-muted-foreground">{fmt(c.createdAt)}</span>
+                </div>
+
+                {/* body or placeholder */}
+                {hiddenForViewer ? (
+                  <div className="text-xs text-muted-foreground italic mt-1">
+                    This comment has been hidden by a teacher.
+                  </div>
+                ) : (
+                  <div className="text-sm mt-1 whitespace-pre-wrap break-words">{c.body}</div>
+                )}
+
+                {/* actions */}
+                <div className="mt-2 flex items-center gap-2">
+                  {!hiddenForViewer && (
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="h-7 px-2 text-xs"
+                      onClick={() => openReply(p.id, c.id)}
+                    >
+                      <ReplyIcon className="h-3.5 w-3.5 mr-1" /> Reply
+                    </Button>
+                  )}
+
+                  {(userRole === "teacher" || (displayName === c.authorName && userRole === c.authorRole)) && (
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="h-7 px-2 text-xs text-red-600"
+                      onClick={() => removeComment(p.id, c)}
+                    >
+                      <Trash2 className="h-3.5 w-3.5 mr-1" /> Delete
+                    </Button>
+                  )}
+
+                  {userRole === "teacher" && (
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="h-7 px-2 text-xs"
+                      onClick={() => toggleCommentHidden(p.id, c.id)}
+                    >
+                      <EyeOff className="h-3.5 w-3.5 mr-1" />
+                      {hidden ? "Unhide" : "Hide"}
+                    </Button>
+                  )}
+                </div>
+
+                {/* children: if hidden for this viewer, don't render subtree */}
+                {!hiddenForViewer && renderCommentsTree(p, c.id, depth + 1)}
+              </div>
+            </li>
+          );
+        })}
       </ul>
     );
   }
@@ -461,15 +554,18 @@ export const AnnouncementPage = ({ userRole, currentUserName }: ForumPageProps) 
             >
               <CardHeader>
                 <div className="flex items-start gap-4">
-                  {/* vote column */}
+                  {/* vote column (up only) */}
                   <div className="flex flex-col items-center">
-                    <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => togglePostVote(p.id, 1)} title="Upvote">
-                      <ArrowBigUp className={`h-5 w-5 ${p.userVote === 1 ? "text-emerald-600" : ""}`} />
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="h-8 w-8"
+                      onClick={() => togglePostUpvote(p.id)}
+                      title="Upvote"
+                    >
+                      <ArrowBigUp className={`h-5 w-5 ${p.userUpvoted ? "text-emerald-600" : ""}`} />
                     </Button>
-                    <div className="text-sm">{p.score}</div>
-                    <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => togglePostVote(p.id, -1)} title="Downvote">
-                      <ArrowBigDown className={`h-5 w-5 ${p.userVote === -1 ? "text-red-600" : ""}`} />
-                    </Button>
+                    <div className="text-sm">{p.upvotes ?? 0}</div>
                   </div>
 
                   {/* content */}
