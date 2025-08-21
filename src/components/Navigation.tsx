@@ -1,139 +1,180 @@
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { BookOpen, Home, Bell, LogOut, User, Heart, Star } from "lucide-react";
+import {
+  Sidebar,
+  SidebarContent,
+  SidebarGroup,
+  SidebarGroupContent,
+  SidebarGroupLabel,
+  SidebarMenu,
+  SidebarMenuButton,
+  SidebarMenuItem,
+  SidebarTrigger,
+  useSidebar,
+  SidebarHeader,
+  SidebarFooter,
+} from "@/components/ui/sidebar";
 
-interface NavigationProps {
+interface AppSidebarProps {
   userRole: "parent" | "teacher";
   currentPage: "dashboard" | "assignments" | "announcements";
   onNavigate: (page: "dashboard" | "assignments" | "announcements") => void;
   onLogout: () => void;
 }
 
-export const Navigation = ({ userRole, currentPage, onNavigate, onLogout }: NavigationProps) => {
+export const AppSidebar = ({ userRole, currentPage, onNavigate, onLogout }: AppSidebarProps) => {
+  const { state } = useSidebar();
+  const isCollapsed = state === "collapsed";
   const userName = userRole === "parent" ? "Sarah Johnson" : "Ms. Anderson";
   const userType = userRole === "parent" ? "Parent" : "Teacher";
 
+  const navigationItems = [
+    {
+      title: "Dashboard",
+      page: "dashboard" as const,
+      icon: Home,
+      badge: null,
+    },
+    {
+      title: "Assignments", 
+      page: "assignments" as const,
+      icon: BookOpen,
+      badge: userRole === "parent" ? 2 : null,
+    },
+    {
+      title: "Announcements",
+      page: "announcements" as const, 
+      icon: Bell,
+      badge: userRole === "parent" ? 3 : null,
+    },
+  ];
+
   return (
-    <nav className="bg-card border-b border-border shadow-sm">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="flex justify-between items-center h-16">
-          {/* Logo */}
-          <div className="flex items-center space-x-3">
-            <div className="relative">
-              <BookOpen className="h-8 w-8 text-primary" />
-              <Heart className="h-3 w-3 text-destructive absolute -top-0.5 -right-0.5" />
-            </div>
-            <div>
-              <h1 className="text-xl font-bold bg-gradient-to-r from-primary to-accent bg-clip-text text-transparent">
+    <Sidebar collapsible="icon">
+      {/* Header with Logo */}
+      <SidebarHeader className="border-b border-border p-4">
+        <div className="flex items-center space-x-3">
+          <div className="relative flex-shrink-0">
+            <BookOpen className="h-8 w-8 text-primary" />
+            <Heart className="h-3 w-3 text-destructive absolute -top-0.5 -right-0.5" />
+          </div>
+          {!isCollapsed && (
+            <div className="min-w-0">
+              <h1 className="text-lg font-bold bg-gradient-to-r from-primary to-accent bg-clip-text text-transparent truncate">
                 Little Learners
               </h1>
               <p className="text-xs text-muted-foreground">Kindergarten Classroom</p>
             </div>
-          </div>
+          )}
+        </div>
+      </SidebarHeader>
 
-          {/* Navigation Links */}
-          <div className="hidden md:flex items-center space-x-1">
-            <Button
-              variant={currentPage === "dashboard" ? "default" : "ghost"}
-              onClick={() => onNavigate("dashboard")}
-              className="flex items-center space-x-2"
-            >
-              <Home className="h-4 w-4" />
-              <span>Dashboard</span>
-            </Button>
+      {/* Navigation Content */}
+      <SidebarContent>
+        <SidebarGroup>
+          <SidebarGroupLabel className={isCollapsed ? "sr-only" : ""}>
+            Navigation
+          </SidebarGroupLabel>
+          <SidebarGroupContent>
+            <SidebarMenu>
+              {navigationItems.map((item) => (
+                <SidebarMenuItem key={item.page}>
+                  <SidebarMenuButton
+                    onClick={() => onNavigate(item.page)}
+                    isActive={currentPage === item.page}
+                    className="w-full justify-start"
+                  >
+                    <item.icon className="h-4 w-4" />
+                    {!isCollapsed && (
+                      <>
+                        <span>{item.title}</span>
+                        {item.badge && (
+                          <Badge variant="destructive" className="ml-auto h-5 w-5 p-0 text-xs flex items-center justify-center">
+                            {item.badge}
+                          </Badge>
+                        )}
+                      </>
+                    )}
+                    {isCollapsed && item.badge && (
+                      <Badge variant="destructive" className="absolute -top-1 -right-1 h-4 w-4 p-0 text-xs flex items-center justify-center">
+                        {item.badge}
+                      </Badge>
+                    )}
+                  </SidebarMenuButton>
+                </SidebarMenuItem>
+              ))}
+            </SidebarMenu>
+          </SidebarGroupContent>
+        </SidebarGroup>
+      </SidebarContent>
 
-            <Button
-              variant={currentPage === "assignments" ? "default" : "ghost"}
-              onClick={() => onNavigate("assignments")}
-              className="flex items-center space-x-2"
-            >
-              <BookOpen className="h-4 w-4" />
-              <span>Assignments</span>
-              {userRole === "parent" && (
-                <Badge variant="secondary" className="ml-1">2</Badge>
-              )}
-            </Button>
-
-            <Button
-              variant={currentPage === "announcements" ? "default" : "ghost"}
-              onClick={() => onNavigate("announcements")}
-              className="flex items-center space-x-2"
-            >
-              <Bell className="h-4 w-4" />
-              <span>Announcements</span>
-              {userRole === "parent" && (
-                <Badge variant="destructive" className="ml-1">3</Badge>
-              )}
-            </Button>
-          </div>
-
-          {/* User Info & Logout */}
-          <div className="flex items-center space-x-4">
-            <div className="hidden sm:flex items-center space-x-3">
-              <div className="text-right">
-                <p className="text-sm font-medium text-foreground">{userName}</p>
+      {/* Footer with User Info and Logout */}
+      <SidebarFooter className="border-t border-border p-4">
+        {!isCollapsed && (
+          <div className="space-y-3">
+            {/* User Info */}
+            <div className="flex items-center space-x-3">
+              <div className="flex-shrink-0">
+                <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center">
+                  <User className="h-4 w-4 text-primary" />
+                </div>
+              </div>
+              <div className="min-w-0 flex-1">
+                <p className="text-sm font-medium text-foreground truncate">{userName}</p>
                 <div className="flex items-center space-x-1">
-                  <User className="h-3 w-3 text-muted-foreground" />
                   <p className="text-xs text-muted-foreground">{userType}</p>
                   <Star className="h-3 w-3 text-warning" />
                 </div>
               </div>
             </div>
 
+            {/* Logout Button */}
             <Button
               variant="outline"
               size="sm"
               onClick={onLogout}
-              className="flex items-center space-x-2"
+              className="w-full justify-start"
+            >
+              <LogOut className="h-4 w-4 mr-2" />
+              Logout
+            </Button>
+          </div>
+        )}
+
+        {isCollapsed && (
+          <div className="space-y-2">
+            <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center mx-auto">
+              <User className="h-4 w-4 text-primary" />
+            </div>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={onLogout}
+              className="w-full p-2"
             >
               <LogOut className="h-4 w-4" />
-              <span className="hidden sm:inline">Logout</span>
             </Button>
           </div>
-        </div>
+        )}
+      </SidebarFooter>
+    </Sidebar>
+  );
+};
 
-        {/* Mobile Navigation */}
-        <div className="md:hidden pb-3">
-          <div className="flex items-center justify-between space-x-1">
-            <Button
-              variant={currentPage === "dashboard" ? "default" : "ghost"}
-              onClick={() => onNavigate("dashboard")}
-              size="sm"
-              className="flex-1"
-            >
-              <Home className="h-4 w-4" />
-            </Button>
+interface TopBarProps {
+  userRole: "parent" | "teacher";
+}
 
-            <Button
-              variant={currentPage === "assignments" ? "default" : "ghost"}
-              onClick={() => onNavigate("assignments")}
-              size="sm"
-              className="flex-1 relative"
-            >
-              <BookOpen className="h-4 w-4" />
-              {userRole === "parent" && (
-                <Badge variant="secondary" className="absolute -top-1 -right-1 h-4 w-4 p-0 text-xs">
-                  2
-                </Badge>
-              )}
-            </Button>
-
-            <Button
-              variant={currentPage === "announcements" ? "default" : "ghost"}
-              onClick={() => onNavigate("announcements")}
-              size="sm"
-              className="flex-1 relative"
-            >
-              <Bell className="h-4 w-4" />
-              {userRole === "parent" && (
-                <Badge variant="destructive" className="absolute -top-1 -right-1 h-4 w-4 p-0 text-xs">
-                  3
-                </Badge>
-              )}
-            </Button>
-          </div>
-        </div>
+export const TopBar = ({ userRole }: TopBarProps) => {
+  return (
+    <header className="h-12 flex items-center border-b border-border bg-card px-4">
+      <SidebarTrigger className="mr-4" />
+      <div className="flex-1">
+        <h2 className="text-lg font-semibold text-foreground">
+          {userRole === "parent" ? "Parent Portal" : "Teacher Dashboard"}
+        </h2>
       </div>
-    </nav>
+    </header>
   );
 };
