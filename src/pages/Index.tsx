@@ -14,9 +14,14 @@ type CurrentPage = "dashboard" | "assignments" | "announcements";
 const Index = () => {
   const { user, loading } = useAuth();
   const [currentPage, setCurrentPage] = useState<CurrentPage>("dashboard");
+  const [badgeCounts, setBadgeCounts] = useState({ assignments: 0, announcements: 0 });
 
   const handleNavigate = (page: CurrentPage) => {
     setCurrentPage(page);
+  };
+
+  const handleBadgeCountsUpdate = (counts: { assignments: number; announcements: number }) => {
+    setBadgeCounts(counts);
   };
 
   // Show loading spinner while checking auth
@@ -41,6 +46,7 @@ const Index = () => {
           user={user}
           currentPage={currentPage}
           onNavigate={handleNavigate}
+          badgeCounts={badgeCounts}
         />
         
         <div className="flex-1 flex flex-col">
@@ -50,7 +56,10 @@ const Index = () => {
             <div className="max-w-7xl mx-auto">
               {currentPage === "dashboard" && (
                 user.role === "parent" ? (
-                  <ParentDashboard onNavigate={handleNavigate} />
+                  <ParentDashboard 
+                    onNavigate={handleNavigate} 
+                    onBadgeCountsUpdate={handleBadgeCountsUpdate}
+                  />
                 ) : user.role === "teacher" ? (
                   <TeacherDashboard onNavigate={handleNavigate} />
                 ) : (
