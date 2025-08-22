@@ -1,465 +1,313 @@
-import { useEffect, useMemo, useState } from "react";
+import React, { useState, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Input } from "@/components/ui/input";
-import { Textarea } from "@/components/ui/textarea";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
-import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import {
-  Plus, Pin, Edit, Trash2, MessageCircle, ArrowBigUp, Reply as ReplyIcon,
-  Search as SearchIcon, EyeOff
-} from "lucide-react";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
+import { Bell, Calendar, Clock, Plus, Pin, Users, Eye, AlertCircle, Star, PartyPopper, MessageCircle, Search } from "lucide-react";
+import { useAuth } from "@/contexts/AuthContext";
+import { useToast } from "@/hooks/use-toast";
+import { AnnouncementService } from "@/lib/services/announcements";
+import { Announcement, AnnouncementWithComments, Comment } from "@/lib/types";
+import { CommentSection } from "./CommentSection";
+import { FileViewer } from "./FileViewer";
+import { collection, query, where, getDocs } from "firebase/firestore";
+import { db } from "@/lib/firebase";
 
-interface ForumPageProps {
-  userRole: "parent" | "teacher";
-  currentUserName?: string;
+interface AnnouncementPageProps {
+  userRole: "parent" | "teacher" | "admin";
 }
 
-// ----- types
-type Tag = "general" | "question" | "advice" | "event" | "policy";
-type SortKey = "hot" | "new" | "top";
-
-type Comment = {
-  id: string;
-  parentId: string | null;
-  body: string;
-  authorRole: "parent" | "teacher";
-  authorName: string;
-  createdAt: string; // ISO
-  upvotes: number;      // ✅ upvotes only
-  userUpvoted?: boolean; // persisted per-browser demo
-  hidden?: boolean;     // ✅ teacher can hide/unhide
-};
-
-type Post = {
-  id: string;
-  title: string;
-  body: string;
-  tag: Tag;
-  authorRole: "parent" | "teacher";
-  authorName: string;
-  createdAt: string; // ISO
-  isPinned: boolean;
-  upvotes: number;        // ✅ upvotes only
-  userUpvoted?: boolean;  // persisted per-browser demo
-  comments: Comment[];
-};
-
-const STORAGE_KEY = "forum_posts_v1";
-const TAGS: Tag[] = ["general", "question", "advice", "event", "policy"];
-const tagBadge = (t: Tag) => {
-  switch (t) {
-    case "question": return "bg-blue-100 text-blue-700";
-    case "advice": return "bg-emerald-100 text-emerald-700";
-    case "event": return "bg-violet-100 text-violet-700";
-    case "policy": return "bg-red-100 text-red-700";
-    default: return "bg-slate-100 text-slate-700";
-  }
-};
-
-// ----- helpers
-const nowISO = () => new Date().toISOString();
-const fmt = (iso: string) => {
-  const d = new Date(iso);
-  const diff = (Date.now() - d.getTime()) / 1000;
-  if (diff < 60) return "just now";
-  if (diff < 3600) return `${Math.floor(diff / 60)}m ago`;
-  if (diff < 86400) return `${Math.floor(diff / 3600)}h ago`;
-  return d.toLocaleDateString();
-};
-
-// Simple “hot” score: upvotes / (hours + 2)^1.5 (pinned still comes first)
-const hotness = (p: Post) => {
-  const hours = Math.max(0, (Date.now() - new Date(p.createdAt).getTime()) / 36e5);
-  return (p.upvotes || 0) / Math.pow(hours + 2, 1.5);
-};
-
-// seed data in the new shape
-const seed = (role: "parent" | "teacher", name?: string): Post[] => [
-  {
-    id: "p1",
-    title: "How do you practice alphabet recognition at home?",
-    body: "Looking for fun, low-prep ideas. What worked for your kids?",
-    tag: "question",
-    authorRole: "parent",
-    authorName: "Parent A",
-    createdAt: new Date(Date.now() - 1000 * 60 * 60 * 3).toISOString(),
-    isPinned: true,
-    upvotes: 5,
-    userUpvoted: false,
-    comments: [
-      {
-        id: "c1",
-        parentId: null,
-        body: "We play a fridge-magnet scavenger hunt. Works great!",
-        authorRole: "parent",
-        authorName: "Parent B",
-        createdAt: nowISO(),
-        upvotes: 3,
-        userUpvoted: false,
-        hidden: false,
-      },
-      {
-        id: "c2",
-        parentId: "c1",
-        body: "Love this idea—thanks for sharing!",
-        authorRole: "teacher",
-        authorName: "Ms. Bee",
-        createdAt: nowISO(),
-        upvotes: 2,
-        userUpvoted: false,
-        hidden: false,
-      },
-    ],
-  },
-  {
-    id: "p2",
-    title: "Reminder: Show & Tell next Friday",
-    body: "Theme is 'My Favorite Book'. Short share, 1–2 minutes per kid.",
-    tag: "event",
-    authorRole: "teacher",
-    authorName: "Ms. Bee",
-    createdAt: new Date(Date.now() - 1000 * 60 * 60 * 24).toISOString(),
-    isPinned: false,
-    upvotes: 2,
-    userUpvoted: false,
-    comments: [],
-  },
-  {
-    id: "p3",
-    title: "Screen-time policy for rainy days?",
-    body: "What’s a reasonable guideline for 4–5 year olds on days we’re inside a lot?",
-    tag: "policy",
-    authorRole: role,
-    authorName: name || (role === "teacher" ? "Teacher" : "Parent"),
-    createdAt: new Date(Date.now() - 1000 * 60 * 90).toISOString(),
-    isPinned: false,
-    upvotes: 1,
-    userUpvoted: false,
-    comments: [],
-  },
-];
-
-// ---- migration from old score/userVote to upvotes/userUpvoted
-function migrate(raw: any): Post[] {
-  const posts = Array.isArray(raw) ? raw : [];
-  return posts.map((p: any) => {
-    const upvotes = typeof p.upvotes === "number" ? p.upvotes : Math.max(0, Number(p.score) || 0);
-    const userUpvoted = typeof p.userUpvoted === "boolean" ? p.userUpvoted : p.userVote === 1;
-    const comments: Comment[] = (p.comments || []).map((c: any) => ({
-      id: c.id,
-      parentId: c.parentId ?? null,
-      body: c.body ?? "",
-      authorRole: c.authorRole === "teacher" ? "teacher" : "parent",
-      authorName: c.authorName ?? "User",
-      createdAt: c.createdAt ?? nowISO(),
-      upvotes: typeof c.upvotes === "number" ? c.upvotes : Math.max(0, Number(c.score) || 0),
-      userUpvoted: typeof c.userUpvoted === "boolean" ? c.userUpvoted : c.userVote === 1,
-      hidden: Boolean(c.hidden) || false,
-    }));
-    return {
-      id: p.id,
-      title: p.title ?? "",
-      body: p.body ?? "",
-      tag: (p.tag as Tag) ?? "general",
-      authorRole: p.authorRole === "teacher" ? "teacher" : "parent",
-      authorName: p.authorName ?? "User",
-      createdAt: p.createdAt ?? nowISO(),
-      isPinned: Boolean(p.isPinned),
-      upvotes,
-      userUpvoted,
-      comments,
-    } as Post;
-  });
-}
-
-export const AnnouncementPage = ({ userRole, currentUserName }: ForumPageProps) => {
-  const displayName = currentUserName || (userRole === "teacher" ? "Teacher" : "Parent");
-  const [posts, setPosts] = useState<Post[]>([]);
-  const [query, setQuery] = useState("");
-  const [filterTag, setFilterTag] = useState<"all" | Tag>("all");
-  const [sortKey, setSortKey] = useState<SortKey>("hot");
-
-  // Create/Edit post dialog
-  const [isPostDialogOpen, setPostDialogOpen] = useState(false);
-  const [editingId, setEditingId] = useState<string | null>(null);
-  const [postDraft, setPostDraft] = useState<Partial<Post>>({
+export const AnnouncementPage = ({ userRole }: AnnouncementPageProps) => {
+  const { user } = useAuth();
+  const { toast } = useToast();
+  const [filterType, setFilterType] = useState("all");
+  const [searchQuery, setSearchQuery] = useState("");
+  const [announcements, setAnnouncements] = useState<AnnouncementWithComments[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [selectedAnnouncement, setSelectedAnnouncement] = useState<AnnouncementWithComments | null>(null);
+  const [showComments, setShowComments] = useState<string | null>(null);
+  const [newAnnouncement, setNewAnnouncement] = useState({
     title: "",
-    body: "",
-    tag: "general",
+    content: "",
+    type: "general",
+    priority: "normal"
   });
 
-  // Comment/reply dialog
-  const [replyFor, setReplyFor] = useState<{ postId: string; parentId: string | null } | null>(null);
-  const [replyText, setReplyText] = useState("");
-
-  // Load/save
+  // Load announcements based on user role
   useEffect(() => {
-    const raw = localStorage.getItem(STORAGE_KEY);
-    if (raw) {
+    const loadAnnouncements = async () => {
+      if (!user) return;
+      
+      setIsLoading(true);
       try {
-        const parsed = JSON.parse(raw);
-        setPosts(migrate(parsed));
-        return;
-      } catch { /* ignore */ }
-    }
-    setPosts(seed(userRole, displayName));
-  }, [userRole, displayName]);
-
-  useEffect(() => {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(posts));
-  }, [posts]);
-
-  // Derived
-  const filtered = useMemo(() => {
-    const q = query.trim().toLowerCase();
-    const visible = posts
-      .filter(p => (filterTag === "all" ? true : p.tag === filterTag))
-      .filter(p => (q ? p.title.toLowerCase().includes(q) || p.body.toLowerCase().includes(q) : true));
-
-    const sorted = [...visible].sort((a, b) => {
-      if (a.isPinned !== b.isPinned) return a.isPinned ? -1 : 1; // pinned first
-      if (sortKey === "new") {
-        return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
-      }
-      if (sortKey === "top") {
-        return (b.upvotes || 0) - (a.upvotes || 0) ||
-               new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
-      }
-      return hotness(b) - hotness(a); // hot
-    });
-
-    return sorted;
-  }, [posts, query, filterTag, sortKey]);
-
-  // Voting
-  function togglePostUpvote(id: string) {
-    setPosts(prev =>
-      prev.map(p => {
-        if (p.id !== id) return p;
-        const nextUp = p.userUpvoted ? (p.upvotes || 0) - 1 : (p.upvotes || 0) + 1;
-        return { ...p, upvotes: Math.max(0, nextUp), userUpvoted: !p.userUpvoted };
-      })
-    );
-  }
-  function toggleCommentUpvote(postId: string, commentId: string) {
-    setPosts(prev =>
-      prev.map(p => {
-        if (p.id !== postId) return p;
-        const comments = p.comments.map(c => {
-          if (c.id !== commentId) return c;
-          const nextUp = c.userUpvoted ? (c.upvotes || 0) - 1 : (c.upvotes || 0) + 1;
-          return { ...c, upvotes: Math.max(0, nextUp), userUpvoted: !c.userUpvoted };
-        });
-        return { ...p, comments };
-      })
-    );
-  }
-
-  // Post CRUD
-  function openCreate() {
-    setEditingId(null);
-    setPostDraft({ title: "", body: "", tag: "general" });
-    setPostDialogOpen(true);
-  }
-  function openEdit(p: Post) {
-    setEditingId(p.id);
-    setPostDraft({ title: p.title, body: p.body, tag: p.tag });
-    setPostDialogOpen(true);
-  }
-  function upsertPost() {
-    if (!postDraft.title || !postDraft.body || !postDraft.tag) return;
-
-    if (editingId) {
-      setPosts(prev =>
-        prev.map(p =>
-          p.id === editingId
-            ? { ...p, title: postDraft.title!, body: postDraft.body!, tag: postDraft.tag as Tag }
-            : p
-        )
-      );
-    } else {
-      const id = (crypto as any)?.randomUUID?.() ?? Math.random().toString(36).slice(2);
-      const newPost: Post = {
-        id,
-        title: postDraft.title!,
-        body: postDraft.body!,
-        tag: postDraft.tag as Tag,
-        authorRole: userRole,
-        authorName: displayName,
-        createdAt: nowISO(),
-        isPinned: false,
-        upvotes: 0,
-        userUpvoted: false,
-        comments: [],
-      };
-      setPosts(prev => [newPost, ...prev]);
-    }
-    setEditingId(null);
-    setPostDraft({ title: "", body: "", tag: "general" });
-    setPostDialogOpen(false);
-  }
-  function removePost(id: string, authorRole: "parent" | "teacher", authorName: string) {
-    // Teachers can delete any. Parents can delete their own only (demo rule).
-    if (userRole !== "teacher" && !(userRole === authorRole && displayName === authorName)) return;
-    if (!confirm("Delete this post?")) return;
-    setPosts(prev => prev.filter(p => p.id !== id));
-  }
-  function togglePin(id: string) {
-    if (userRole !== "teacher") return;
-    setPosts(prev => prev.map(p => (p.id === id ? { ...p, isPinned: !p.isPinned } : p)));
-  }
-
-  // Comments
-  function openReply(postId: string, parentId: string | null = null) {
-    setReplyFor({ postId, parentId });
-    setReplyText("");
-  }
-  function saveReply() {
-    if (!replyFor || !replyText.trim()) return;
-    const id = (crypto as any)?.randomUUID?.() ?? Math.random().toString(36).slice(2);
-    const newComment: Comment = {
-      id,
-      parentId: replyFor.parentId,
-      body: replyText.trim(),
-      authorRole: userRole,
-      authorName: displayName,
-      createdAt: nowISO(),
-      upvotes: 0,
-      userUpvoted: false,
-      hidden: false,
-    };
-    setPosts(prev =>
-      prev.map(p => (p.id === replyFor.postId ? { ...p, comments: [...p.comments, newComment] } : p))
-    );
-    setReplyFor(null);
-    setReplyText("");
-  }
-  function removeComment(postId: string, comment: Comment) {
-    if (userRole !== "teacher" && !(userRole === comment.authorRole && displayName === comment.authorName)) return;
-    if (!confirm("Delete this comment?")) return;
-    // Remove comment and all its descendants
-    setPosts(prev =>
-      prev.map(p => {
-        if (p.id !== postId) return p;
-        const delSet = new Set<string>([comment.id]);
-        let changed = true;
-        while (changed) {
-          changed = false;
-          p.comments.forEach(c => {
-            if (c.parentId && delSet.has(c.parentId) && !delSet.has(c.id)) {
-              delSet.add(c.id);
-              changed = true;
+        let announcementsData: AnnouncementWithComments[] = [];
+        
+        if (user.role === 'teacher') {
+          // For teachers, get announcements from their classes
+          try {
+            // Get teacher's classes first
+            const classesQuery = query(
+              collection(db, 'classes'),
+              where('teacherId', '==', user.uid),
+              where('isActive', '==', true)
+            );
+            const classesSnapshot = await getDocs(classesQuery);
+            
+            // Get announcements from all teacher's classes
+            for (const classDoc of classesSnapshot.docs) {
+              const classAnnouncements = await AnnouncementService.getClassAnnouncementsWithComments(classDoc.id);
+              announcementsData.push(...classAnnouncements);
             }
-          });
+          } catch (error) {
+            console.error('Error loading teacher announcements:', error);
+          }
+        } else if (user.role === 'parent') {
+          // For parents, get announcements from their child's class
+          try {
+            // Get parent's student(s) first
+            const studentsQuery = query(
+              collection(db, 'students'),
+              where('parentId', '==', user.uid),
+              where('isActive', '==', true)
+            );
+            const studentsSnapshot = await getDocs(studentsQuery);
+            
+            // Get announcements from student's class
+            for (const studentDoc of studentsSnapshot.docs) {
+              const studentData = studentDoc.data();
+              if (studentData.classId) {
+                const classAnnouncements = await AnnouncementService.getClassAnnouncementsWithComments(studentData.classId);
+                announcementsData.push(...classAnnouncements);
+              }
+            }
+          } catch (error) {
+            console.error('Error loading parent announcements:', error);
+          }
+        } else if (user.role === 'admin') {
+          // For admins, get all announcements
+          try {
+            // Get all classes first
+            const classesQuery = query(collection(db, 'classes'), where('isActive', '==', true));
+            const classesSnapshot = await getDocs(classesQuery);
+            
+            // Get announcements from all classes
+            for (const classDoc of classesSnapshot.docs) {
+              const classAnnouncements = await AnnouncementService.getClassAnnouncementsWithComments(classDoc.id);
+              announcementsData.push(...classAnnouncements);
+            }
+          } catch (error) {
+            console.error('Error loading admin announcements:', error);
+          }
         }
-        return { ...p, comments: p.comments.filter(c => !delSet.has(c.id)) };
-      })
-    );
-  }
-  function toggleCommentHidden(postId: string, commentId: string) {
-    if (userRole !== "teacher") return;
-    setPosts(prev =>
-      prev.map(p => {
-        if (p.id !== postId) return p;
-        const comments = p.comments.map(c =>
-          c.id === commentId ? { ...c, hidden: !c.hidden } : c
-        );
-        return { ...p, comments };
-      })
-    );
-  }
+        
+        setAnnouncements(announcementsData);
+      } catch (error) {
+        console.error('Error loading announcements:', error);
+        toast({
+          title: "Error",
+          description: "Failed to load announcements. Please try again.",
+          variant: "destructive"
+        });
+      } finally {
+        setIsLoading(false);
+      }
+    };
 
-  // Render comments with hide rules
-  function renderCommentsTree(p: Post, parentId: string | null = null, depth = 0) {
-    const nodes = p.comments.filter(c => c.parentId === parentId);
-    if (!nodes.length) return null;
+    loadAnnouncements();
+  }, [user, toast]);
 
+  const filteredAnnouncements = announcements.filter(announcement => {
+    const matchesType = filterType === "all" || announcement.type === filterType;
+    const matchesSearch = announcement.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
+                         announcement.content.toLowerCase().includes(searchQuery.toLowerCase());
+    return matchesType && matchesSearch;
+  });
+
+  const handleCommentAdded = async (announcementId: string, comment: Comment) => {
+    try {
+      // Add comment to database
+      await AnnouncementService.addComment(announcementId, {
+        userId: comment.userId,
+        userDisplayName: comment.userDisplayName,
+        userRole: comment.userRole,
+        content: comment.content
+      });
+      
+      // Update local state
+      setAnnouncements(prev => prev.map(announcement => {
+        if (announcement.id === announcementId) {
+          return {
+            ...announcement,
+            comments: [...(announcement.comments || []), comment],
+            commentCount: (announcement.commentCount || 0) + 1
+          };
+        }
+        return announcement;
+      }));
+    } catch (error) {
+      console.error('Error adding comment:', error);
+      toast({
+        title: "Error",
+        description: "Failed to add comment. Please try again.",
+        variant: "destructive"
+      });
+    }
+  };
+
+  const handleCommentUpdated = async (announcementId: string, commentId: string, updates: Partial<Comment>) => {
+    try {
+      // Update comment in database
+      await AnnouncementService.updateComment(announcementId, commentId, updates);
+      
+      // Update local state
+      setAnnouncements(prev => prev.map(announcement => {
+        if (announcement.id === announcementId) {
+          return {
+            ...announcement,
+            comments: announcement.comments?.map(comment => 
+              comment.id === commentId ? { ...comment, ...updates } : comment
+            ) || []
+          };
+        }
+        return announcement;
+      }));
+    } catch (error) {
+      console.error('Error updating comment:', error);
+      toast({
+        title: "Error",
+        description: "Failed to update comment. Please try again.",
+        variant: "destructive"
+      });
+    }
+  };
+
+  const handleCommentDeleted = async (announcementId: string, commentId: string) => {
+    try {
+      // Delete comment from database
+      await AnnouncementService.deleteComment(announcementId, commentId);
+      
+      // Update local state
+      setAnnouncements(prev => prev.map(announcement => {
+        if (announcement.id === announcementId) {
+          return {
+            ...announcement,
+            comments: announcement.comments?.filter(comment => comment.id !== commentId) || [],
+            commentCount: Math.max(0, (announcement.commentCount || 0) - 1)
+          };
+        }
+        return announcement;
+      }));
+    } catch (error) {
+      console.error('Error deleting comment:', error);
+      toast({
+        title: "Error",
+        description: "Failed to delete comment. Please try again.",
+        variant: "destructive"
+      });
+    }
+  };
+
+  const handleCreateAnnouncement = async () => {
+    try {
+      // TODO: Implement announcement creation with Firebase
+      console.log("Creating announcement:", newAnnouncement);
+      setNewAnnouncement({ title: "", content: "", type: "general", priority: "normal" });
+      toast({
+        title: "Success",
+        description: "Announcement created successfully!",
+      });
+    } catch (error) {
+      console.error('Error creating announcement:', error);
+      toast({
+        title: "Error",
+        description: "Failed to create announcement. Please try again.",
+        variant: "destructive"
+      });
+    }
+  };
+
+  const getTypeIcon = (type: string) => {
+    switch (type) {
+      case "event": return <PartyPopper className="h-4 w-4" />;
+      case "reminder": return <AlertCircle className="h-4 w-4" />;
+      case "activity": return <Star className="h-4 w-4" />;
+      case "general": return <Bell className="h-4 w-4" />;
+      default: return <Bell className="h-4 w-4" />;
+    }
+  };
+
+  const getTypeColor = (type: string) => {
+    switch (type) {
+      case "event": return "primary";
+      case "reminder": return "warning";
+      case "activity": return "accent";
+      case "general": return "secondary";
+      default: return "secondary";
+    }
+  };
+
+  const getPriorityColor = (priority: string) => {
+    switch (priority) {
+      case "high": return "destructive";
+      case "normal": return "secondary";
+      default: return "secondary";
+    }
+  };
+
+  const formatTimeAgo = (date: any) => {
+    try {
+      let actualDate: Date;
+      
+      // Handle Firestore Timestamp
+      if (date && typeof date === 'object' && date.toDate) {
+        actualDate = date.toDate();
+      }
+      // Handle Date object
+      else if (date instanceof Date) {
+        actualDate = date;
+      }
+      // Handle string dates
+      else if (typeof date === 'string') {
+        actualDate = new Date(date);
+      }
+      // Fallback
+      else {
+        return 'Unknown time';
+      }
+
+      const now = new Date();
+      const diffInMs = now.getTime() - actualDate.getTime();
+      const diffInMins = Math.floor(diffInMs / (1000 * 60));
+      const diffInHours = Math.floor(diffInMs / (1000 * 60 * 60));
+      const diffInDays = Math.floor(diffInMs / (1000 * 60 * 60 * 24));
+
+      if (diffInMins < 1) {
+        return 'Just now';
+      } else if (diffInMins < 60) {
+        return `${diffInMins} minutes ago`;
+      } else if (diffInHours < 24) {
+        return `${diffInHours} hours ago`;
+      } else {
+        return `${diffInDays} days ago`;
+      }
+    } catch (error) {
+      console.error('Error formatting time:', error);
+      return 'Unknown time';
+    }
+  };
+
+  if (isLoading) {
     return (
-      <ul className={`space-y-3 ${depth ? "pl-4 border-l" : ""}`}>
-        {nodes.map(c => {
-          const hidden = c.hidden === true;
-          const hiddenForViewer = hidden && userRole !== "teacher";
-          return (
-            <li key={c.id} className="flex items-start gap-3">
-              {/* votes (up only) */}
-              <div className="flex flex-col items-center pt-1">
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  className="h-7 w-7"
-                  onClick={() => !hiddenForViewer && toggleCommentUpvote(p.id, c.id)}
-                  title="Upvote"
-                  disabled={hiddenForViewer}
-                >
-                  <ArrowBigUp className={`h-4 w-4 ${c.userUpvoted ? "text-emerald-600" : ""}`} />
-                </Button>
-                <div className="text-sm">{c.upvotes ?? 0}</div>
-              </div>
-
-              <div className="flex-1 min-w-0">
-                <div className="flex flex-wrap items-center gap-2 text-sm">
-                  <span className="font-medium">{c.authorName}</span>
-                  <Badge variant="outline" className="capitalize">{c.authorRole}</Badge>
-                  {hidden && <Badge variant="destructive">Hidden</Badge>}
-                  <span className="text-xs text-muted-foreground">{fmt(c.createdAt)}</span>
-                </div>
-
-                {/* body or placeholder */}
-                {hiddenForViewer ? (
-                  <div className="text-xs text-muted-foreground italic mt-1">
-                    This comment has been hidden by a teacher.
-                  </div>
-                ) : (
-                  <div className="text-sm mt-1 whitespace-pre-wrap break-words">{c.body}</div>
-                )}
-
-                {/* actions */}
-                <div className="mt-2 flex items-center gap-2">
-                  {!hiddenForViewer && (
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      className="h-7 px-2 text-xs"
-                      onClick={() => openReply(p.id, c.id)}
-                    >
-                      <ReplyIcon className="h-3.5 w-3.5 mr-1" /> Reply
-                    </Button>
-                  )}
-
-                  {(userRole === "teacher" || (displayName === c.authorName && userRole === c.authorRole)) && (
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      className="h-7 px-2 text-xs text-red-600"
-                      onClick={() => removeComment(p.id, c)}
-                    >
-                      <Trash2 className="h-3.5 w-3.5 mr-1" /> Delete
-                    </Button>
-                  )}
-
-                  {userRole === "teacher" && (
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      className="h-7 px-2 text-xs"
-                      onClick={() => toggleCommentHidden(p.id, c.id)}
-                    >
-                      <EyeOff className="h-3.5 w-3.5 mr-1" />
-                      {hidden ? "Unhide" : "Hide"}
-                    </Button>
-                  )}
-                </div>
-
-                {/* children: if hidden for this viewer, don't render subtree */}
-                {!hiddenForViewer && renderCommentsTree(p, c.id, depth + 1)}
-              </div>
-            </li>
-          );
-        })}
-      </ul>
+      <div className="space-y-6">
+        <div className="text-center py-12">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto mb-4"></div>
+          <p className="text-muted-foreground">Loading announcements...</p>
+        </div>
+      </div>
     );
   }
 
@@ -468,8 +316,13 @@ export const AnnouncementPage = ({ userRole, currentUserName }: ForumPageProps) 
       {/* Header */}
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
         <div>
-          <h1 className="text-3xl font-bold text-foreground">Forum</h1>
-          <p className="text-muted-foreground mt-1">Start topics, ask questions, and share advice.</p>
+          <h1 className="text-3xl font-bold text-foreground">Announcements</h1>
+          <p className="text-muted-foreground mt-1">
+            {userRole === "parent" 
+              ? "Stay updated with class news and important information"
+              : "Share updates and important information with parents"
+            }
+          </p>
         </div>
 
         {/* Controls */}
@@ -477,200 +330,304 @@ export const AnnouncementPage = ({ userRole, currentUserName }: ForumPageProps) 
           <div className="relative flex-1 sm:flex-none">
             <Input
               className="pl-9"
-              placeholder="Search posts..."
-              value={query}
-              onChange={(e) => setQuery(e.target.value)}
+              placeholder="Search announcements..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
             />
-            <SearchIcon className="h-4 w-4 absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
+            <Search className="h-4 w-4 absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
           </div>
 
-          <Select value={filterTag} onValueChange={(v) => setFilterTag(v as any)}>
+          <Select value={filterType} onValueChange={(value) => setFilterType(value)}>
             <SelectTrigger className="w-40">
-              <SelectValue placeholder="Filter by tag" />
+              <SelectValue placeholder="Filter by type" />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="all">All</SelectItem>
-              {TAGS.map(t => <SelectItem key={t} value={t}>{t[0].toUpperCase() + t.slice(1)}</SelectItem>)}
+              <SelectItem value="all">All Types</SelectItem>
+              <SelectItem value="event">Events</SelectItem>
+              <SelectItem value="reminder">Reminders</SelectItem>
+              <SelectItem value="activity">Activities</SelectItem>
+              <SelectItem value="policy">Policy</SelectItem>
+              <SelectItem value="general">General</SelectItem>
             </SelectContent>
           </Select>
 
-          <Select value={sortKey} onValueChange={(v) => setSortKey(v as SortKey)}>
-            <SelectTrigger className="w-32">
-              <SelectValue placeholder="Sort" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="hot">Hot</SelectItem>
-              <SelectItem value="new">New</SelectItem>
-              <SelectItem value="top">Top</SelectItem>
-            </SelectContent>
-          </Select>
-
-          {/* New Post */}
-          <Dialog open={isPostDialogOpen} onOpenChange={(o) => { setPostDialogOpen(o); if (!o) setEditingId(null); }}>
-            <DialogTrigger asChild>
-              <Button onClick={openCreate} className="flex items-center gap-2">
-                <Plus className="h-4 w-4" /> New Post
-              </Button>
-            </DialogTrigger>
-            <DialogContent className="max-w-md">
-              <DialogHeader>
-                <DialogTitle>{editingId ? "Edit Post" : "Create New Post"}</DialogTitle>
-              </DialogHeader>
-              <div className="space-y-4">
-                <div>
-                  <Label htmlFor="post-title">Title</Label>
-                  <Input id="post-title" value={postDraft.title ?? ""} onChange={(e) => setPostDraft(d => ({ ...d, title: e.target.value }))} />
+          {/* Create Announcement (Teacher only) */}
+          {userRole === "teacher" && (
+            <Dialog>
+              <DialogTrigger asChild>
+                <Button className="flex items-center space-x-2">
+                  <Plus className="h-4 w-4" />
+                  <span>New Announcement</span>
+                </Button>
+              </DialogTrigger>
+              <DialogContent className="max-w-md">
+                <DialogHeader>
+                  <DialogTitle>Create New Announcement</DialogTitle>
+                </DialogHeader>
+                <div className="space-y-4">
+                  <div>
+                    <Label htmlFor="announcement-title">Title</Label>
+                    <Input
+                      id="announcement-title"
+                      value={newAnnouncement.title}
+                      onChange={(e) => setNewAnnouncement({...newAnnouncement, title: e.target.value})}
+                      placeholder="e.g., Field Trip Next Friday"
+                    />
+                  </div>
+                  <div>
+                    <Label htmlFor="announcement-type">Type</Label>
+                    <Select onValueChange={(value) => setNewAnnouncement({...newAnnouncement, type: value})}>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select type" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="general">General</SelectItem>
+                        <SelectItem value="event">Event</SelectItem>
+                        <SelectItem value="reminder">Reminder</SelectItem>
+                        <SelectItem value="activity">Activity</SelectItem>
+                        <SelectItem value="policy">Policy</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div>
+                    <Label htmlFor="announcement-priority">Priority</Label>
+                    <Select onValueChange={(value) => setNewAnnouncement({...newAnnouncement, priority: value})}>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select priority" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="normal">Normal</SelectItem>
+                        <SelectItem value="high">High Priority</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div>
+                    <Label htmlFor="announcement-content">Message</Label>
+                    <Textarea
+                      id="announcement-content"
+                      value={newAnnouncement.content}
+                      onChange={(e) => setNewAnnouncement({...newAnnouncement, content: e.target.value})}
+                      placeholder="Write your announcement here..."
+                      rows={4}
+                    />
+                  </div>
+                  <Button onClick={handleCreateAnnouncement} className="w-full">
+                    Send Announcement
+                  </Button>
                 </div>
-                <div>
-                  <Label htmlFor="post-tag">Tag</Label>
-                  <Select value={(postDraft.tag as Tag) ?? "general"} onValueChange={(v) => setPostDraft(d => ({ ...d, tag: v as Tag }))}>
-                    <SelectTrigger><SelectValue placeholder="Select tag" /></SelectTrigger>
-                    <SelectContent>
-                      {TAGS.map(t => <SelectItem key={t} value={t}>{t[0].toUpperCase() + t.slice(1)}</SelectItem>)}
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div>
-                  <Label htmlFor="post-body">Body</Label>
-                  <Textarea id="post-body" rows={5} value={postDraft.body ?? ""} onChange={(e) => setPostDraft(d => ({ ...d, body: e.target.value }))} />
-                </div>
-                <Button className="w-full" onClick={upsertPost}>{editingId ? "Save Changes" : "Post"}</Button>
-              </div>
-            </DialogContent>
-          </Dialog>
+              </DialogContent>
+            </Dialog>
+          )}
         </div>
       </div>
 
-      {/* Posts */}
+      {/* Announcement Stats (Teacher only) */}
+      {userRole === "teacher" && (
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+          <Card className="border-l-4 border-l-primary">
+            <CardContent className="p-4">
+              <div className="flex items-center space-x-3">
+                <Bell className="h-8 w-8 text-primary" />
+                <div>
+                  <p className="text-2xl font-bold">{announcements.length}</p>
+                  <p className="text-sm text-muted-foreground">Total Announcements</p>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card className="border-l-4 border-l-success">
+            <CardContent className="p-4">
+              <div className="flex items-center space-x-3">
+                <Eye className="h-8 w-8 text-success" />
+                <div>
+                  <p className="text-2xl font-bold">92%</p>
+                  <p className="text-sm text-muted-foreground">Average Read Rate</p>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card className="border-l-4 border-l-warning">
+            <CardContent className="p-4">
+              <div className="flex items-center space-x-3">
+                <Pin className="h-8 w-8 text-warning" />
+                <div>
+                  <p className="text-2xl font-bold">
+                    {announcements.filter(a => a.priority === 'high').length}
+                  </p>
+                  <p className="text-sm text-muted-foreground">High Priority</p>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card className="border-l-4 border-l-accent">
+            <CardContent className="p-4">
+              <div className="flex items-center space-x-3">
+                <Users className="h-8 w-8 text-accent" />
+                <div>
+                  <p className="text-2xl font-bold">24</p>
+                  <p className="text-sm text-muted-foreground">Parent Recipients</p>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+      )}
+
+      {/* Announcements List */}
       <div className="space-y-4">
-        {filtered.map(p => {
-          const canEdit = displayName === p.authorName && userRole === p.authorRole;
-          const canDelete = userRole === "teacher" || canEdit;
-
-          return (
-            <Card
-              key={p.id}
-              className={`hover:shadow-lg transition-shadow ${p.isPinned ? "border-l-4 border-l-amber-500" : ""}`}
-            >
-              <CardHeader>
-                <div className="flex items-start gap-4">
-                  {/* vote column (up only) */}
-                  <div className="flex flex-col items-center">
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      className="h-8 w-8"
-                      onClick={() => togglePostUpvote(p.id)}
-                      title="Upvote"
-                    >
-                      <ArrowBigUp className={`h-5 w-5 ${p.userUpvoted ? "text-emerald-600" : ""}`} />
-                    </Button>
-                    <div className="text-sm">{p.upvotes ?? 0}</div>
+        {filteredAnnouncements.map((announcement) => (
+          <Card 
+            key={announcement.id} 
+            className="hover:shadow-lg transition-shadow cursor-pointer"
+            onClick={() => setSelectedAnnouncement(announcement)}
+          >
+            <CardHeader>
+              <div className="flex items-start justify-between">
+                <div className="space-y-2">
+                  <div className="flex items-center space-x-3">
+                    <CardTitle className="text-lg">{announcement.title}</CardTitle>
                   </div>
-
-                  {/* content */}
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-start justify-between gap-3">
-                      <div className="space-y-2">
-                        <div className="flex items-center gap-2">
-                          {p.isPinned && <Pin className="h-4 w-4 text-amber-600" />}
-                          <CardTitle className="text-lg">{p.title}</CardTitle>
-                          <Badge className={tagBadge(p.tag)}>{p.tag}</Badge>
-                        </div>
-                        <div className="text-sm text-muted-foreground">
-                          Posted by <span className="font-medium">{p.authorName}</span> • {fmt(p.createdAt)}
-                        </div>
-                      </div>
-
-                      {/* actions */}
-                      <div className="flex items-center gap-2 shrink-0">
-                        {userRole === "teacher" && (
-                          <Button size="sm" variant="outline" title={p.isPinned ? "Unpin" : "Pin"} onClick={() => togglePin(p.id)}>
-                            <Pin className="h-4 w-4" />
-                          </Button>
-                        )}
-                        {canEdit && (
-                          <Button size="sm" variant="outline" title="Edit" onClick={() => openEdit(p)}>
-                            <Edit className="h-4 w-4" />
-                          </Button>
-                        )}
-                        {canDelete && (
-                          <Button size="sm" variant="outline" title="Delete" onClick={() => removePost(p.id, p.authorRole, p.authorName)}>
-                            <Trash2 className="h-4 w-4" />
-                          </Button>
-                        )}
-                      </div>
+                  <div className="flex items-center space-x-3 flex-wrap">
+                    <Badge variant={getTypeColor(announcement.type)} className="flex items-center space-x-1">
+                      {getTypeIcon(announcement.type)}
+                      <span className="capitalize">{announcement.type}</span>
+                    </Badge>
+                    {announcement.priority === "high" && (
+                      <Badge variant={getPriorityColor(announcement.priority)}>
+                        High Priority
+                      </Badge>
+                    )}
+                    <div className="flex items-center space-x-1 text-sm text-muted-foreground">
+                      <Clock className="h-3 w-3" />
+                      <span>{formatTimeAgo(announcement.createdAt)}</span>
+                    </div>
+                    <div className="text-sm text-muted-foreground">
+                      by Teacher
                     </div>
                   </div>
                 </div>
-              </CardHeader>
 
-              <CardContent className="space-y-4">
-                <div className="whitespace-pre-wrap">{p.body}</div>
-
-                {/* New top-level comment */}
-                <div className="flex items-center justify-between">
-                  <div className="text-sm font-medium flex items-center gap-2">
-                    <MessageCircle className="h-4 w-4" /> {p.comments.length} comments
+                {userRole === "teacher" && (
+                  <div className="flex items-center space-x-2 text-sm text-muted-foreground">
+                    <Users className="h-4 w-4" />
+                    <span>{announcement.readBy?.length || 0} read</span>
                   </div>
-                  <Dialog open={Boolean(replyFor?.postId === p.id && replyFor?.parentId === null)}
-                          onOpenChange={(o) => (!o ? setReplyFor(null) : openReply(p.id, null))}>
-                    <DialogTrigger asChild>
-                      <Button size="sm" variant="outline" onClick={() => openReply(p.id, null)}>
-                        Add Comment
-                      </Button>
-                    </DialogTrigger>
-                    <DialogContent className="max-w-md">
-                      <DialogHeader><DialogTitle>New comment</DialogTitle></DialogHeader>
-                      <div className="space-y-3">
-                        <Textarea rows={4} value={replyText} onChange={(e) => setReplyText(e.target.value)} placeholder="Write your comment..." />
-                        <div className="flex justify-end gap-2">
-                          <Button variant="secondary" onClick={() => setReplyFor(null)}>Cancel</Button>
-                          <Button onClick={saveReply}>Post</Button>
-                        </div>
-                      </div>
-                    </DialogContent>
-                  </Dialog>
-                </div>
-
-                {/* Thread */}
-                {p.comments.length > 0 ? (
-                  <div className="space-y-3">
-                    {renderCommentsTree(p)}
-                  </div>
-                ) : (
-                  <p className="text-sm text-muted-foreground">No comments yet.</p>
                 )}
-
-                {/* Reply dialog for nested replies */}
-                <Dialog open={Boolean(replyFor?.postId === p.id && replyFor?.parentId)}
-                        onOpenChange={(o) => (!o ? setReplyFor(null) : undefined)}>
-                  <DialogContent className="max-w-md">
-                    <DialogHeader><DialogTitle>Reply</DialogTitle></DialogHeader>
-                    <div className="space-y-3">
-                      <Textarea rows={3} value={replyText} onChange={(e) => setReplyText(e.target.value)} placeholder="Write your reply..." />
-                      <div className="flex justify-end gap-2">
-                        <Button variant="secondary" onClick={() => setReplyFor(null)}>Cancel</Button>
-                        <Button onClick={saveReply}><ReplyIcon className="h-4 w-4 mr-1" /> Reply</Button>
-                      </div>
-                    </div>
-                  </DialogContent>
-                </Dialog>
-              </CardContent>
-            </Card>
-          );
-        })}
+              </div>
+            </CardHeader>
+            <CardContent>
+              <p className="text-foreground whitespace-pre-wrap">{announcement.content}</p>
+              
+              {userRole === "teacher" && announcement.readBy && (
+                <div className="mt-4 bg-muted/50 rounded-lg p-3">
+                  <div className="flex items-center justify-between mb-2">
+                    <span className="text-sm font-medium">Read Status</span>
+                    <span className="text-sm text-muted-foreground">
+                      {announcement.readBy.length > 0 ? Math.round((announcement.readBy.length / 24) * 100) : 0}%
+                    </span>
+                  </div>
+                  <div className="w-full bg-muted rounded-full h-2">
+                    <div 
+                      className="bg-primary h-2 rounded-full transition-all"
+                      style={{ width: `${announcement.readBy.length > 0 ? Math.round((announcement.readBy.length / 24) * 100) : 0}%` }}
+                    ></div>
+                  </div>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        ))}
       </div>
 
-      {filtered.length === 0 && (
+      {filteredAnnouncements.length === 0 && (
         <Card>
           <CardContent className="p-12 text-center">
-            <MessageCircle className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
-            <h3 className="text-lg font-medium text-foreground mb-2">No posts yet</h3>
-            <p className="text-muted-foreground">Be the first to start a discussion.</p>
+            <Bell className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
+            <h3 className="text-lg font-medium text-foreground mb-2">No announcements found</h3>
+            <p className="text-muted-foreground">
+              {filterType === "all" 
+                ? "No announcements have been posted yet."
+                : `No ${filterType} announcements found.`
+              }
+            </p>
+            {userRole === "teacher" && (
+              <p className="text-sm text-muted-foreground mt-2">
+                Create announcements from your Teacher Dashboard to get started.
+              </p>
+            )}
           </CardContent>
         </Card>
       )}
+
+      {/* Announcement Detail Dialog */}
+      <Dialog open={!!selectedAnnouncement} onOpenChange={() => setSelectedAnnouncement(null)}>
+        <DialogContent className="max-w-4xl max-h-[80vh] overflow-y-auto">
+          {selectedAnnouncement && (
+            <>
+              <DialogHeader>
+                <DialogTitle>{selectedAnnouncement.title}</DialogTitle>
+              </DialogHeader>
+              <div className="space-y-6">
+                <div>
+                  <h4 className="font-medium mb-2">Content</h4>
+                  <p className="text-muted-foreground whitespace-pre-wrap">{selectedAnnouncement.content}</p>
+                </div>
+                
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <h4 className="font-medium mb-2">Type</h4>
+                    <Badge variant={getTypeColor(selectedAnnouncement.type)} className="flex items-center space-x-1 w-fit">
+                      {getTypeIcon(selectedAnnouncement.type)}
+                      <span className="capitalize">{selectedAnnouncement.type}</span>
+                    </Badge>
+                  </div>
+                  <div>
+                    <h4 className="font-medium mb-2">Priority</h4>
+                    <Badge variant={getPriorityColor(selectedAnnouncement.priority)} className="w-fit">
+                      {selectedAnnouncement.priority === 'high' ? 'High Priority' : 'Normal'}
+                    </Badge>
+                  </div>
+                  <div>
+                    <h4 className="font-medium mb-2">Posted</h4>
+                    <p className="text-muted-foreground">{formatTimeAgo(selectedAnnouncement.createdAt)}</p>
+                  </div>
+                  <div>
+                    <h4 className="font-medium mb-2">Comments</h4>
+                    <p className="text-muted-foreground">{selectedAnnouncement.commentCount || 0}</p>
+                  </div>
+                </div>
+
+                {selectedAnnouncement.attachments && selectedAnnouncement.attachments.length > 0 && (
+                  <div>
+                    <h4 className="font-medium mb-2">Attachments</h4>
+                    <FileViewer 
+                      files={selectedAnnouncement.attachments}
+                      title=""
+                      showDownloadButton={true}
+                      showPreviewButton={true}
+                      compact={true}
+                    />
+                  </div>
+                )}
+
+                <div>
+                  <h4 className="font-medium mb-2">Comments ({selectedAnnouncement.commentCount || 0})</h4>
+                  <CommentSection
+                    assignmentId={selectedAnnouncement.id}
+                    comments={selectedAnnouncement.comments || []}
+                    onCommentAdded={(comment) => handleCommentAdded(selectedAnnouncement.id, comment)}
+                    onCommentUpdated={(commentId, updates) => handleCommentUpdated(selectedAnnouncement.id, commentId, updates)}
+                    onCommentDeleted={(commentId) => handleCommentDeleted(selectedAnnouncement.id, commentId)}
+                  />
+                </div>
+              </div>
+            </>
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };

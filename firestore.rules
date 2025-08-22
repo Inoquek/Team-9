@@ -1,0 +1,107 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Allow public read access to user documents for authentication process
+    // This is needed during login before the user is authenticated
+    match /users/{userId} {
+      allow read: if true; // Allow public read for authentication
+      allow write: if request.auth != null && request.auth.uid == userId; // Only authenticated users can write their own data
+    }
+    
+    // Allow admins to read/write all user documents
+    match /users/{userId} {
+      allow read, write: if request.auth != null && 
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin';
+    }
+    
+    // Allow access to usernames collection for authentication (username lookup)
+    // Public read access needed for login process before authentication
+    match /usernames/{username} {
+      allow read: if true; // Allow public read for username lookup during login
+      allow write: if request.auth != null; // Only authenticated users can write
+    }
+    
+    // Temporary: Allow all access to usernames collection for debugging
+    // This will be removed once authentication is working
+    match /usernames/{document=**} {
+      allow read, write: if true;
+    }
+    
+    // Allow teachers to read/write their own class documents
+    match /classes/{classId} {
+      allow read, write: if request.auth != null && 
+        (resource.data.teacherId == request.auth.uid || 
+         get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin');
+    }
+    
+    // Allow access to students collection for teachers and parents
+    match /students/{studentId} {
+      allow read: if request.auth != null && (
+        // Teachers can read students in their classes
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'teacher' ||
+        // Parents can read their own student data
+        resource.data.parentId == request.auth.uid ||
+        // Admins can read all students
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin'
+      );
+      allow write: if request.auth != null && 
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin';
+    }
+    
+    // Allow teachers to create assignments (simplified for new documents)
+    match /assignments/{assignmentId} {
+      allow read: if request.auth != null;
+      allow create: if request.auth != null && 
+        request.resource.data.teacherId == request.auth.uid;
+      allow update, delete: if request.auth != null && 
+        (resource.data.teacherId == request.auth.uid || 
+         get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin');
+    }
+    
+    // Allow teachers to create announcements (simplified for new documents)
+    match /announcements/{announcementId} {
+      allow read: if request.auth != null;
+      allow create: if request.auth != null && 
+        request.resource.data.teacherId == request.auth.uid;
+      allow update, delete: if request.auth != null && 
+        (resource.data.teacherId == request.auth.uid || 
+         get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin');
+    }
+    
+    // Allow comments on assignments
+    match /assignments/{assignmentId}/comments/{commentId} {
+      allow read: if request.auth != null;
+      allow create: if request.auth != null && 
+        request.resource.data.userId == request.auth.uid;
+      allow update, delete: if request.auth != null && 
+        (resource.data.userId == request.auth.uid || 
+         get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin' ||
+         get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'teacher');
+    }
+    
+    // Allow comments on announcements
+    match /announcements/{announcementId}/comments/{commentId} {
+      allow read: if request.auth != null;
+      allow create: if request.auth != null && 
+        request.resource.data.userId == request.auth.uid;
+      allow update, delete: if request.auth != null && 
+        (resource.data.userId == request.auth.uid || 
+         get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin' ||
+         get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'teacher');
+    }
+    
+    // Allow students to submit assignments
+    match /submissions/{submissionId} {
+      allow read, write: if request.auth != null && 
+        (resource.data.studentId == request.auth.uid || 
+         resource.data.parentId == request.auth.uid ||
+         get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'teacher');
+    }
+    
+    // Allow admins to read/write all documents
+    match /{document=**} {
+      allow read, write: if request.auth != null && 
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin';
+    }
+  }
+}
