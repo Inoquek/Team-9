@@ -14,6 +14,7 @@ import { UserEditForm } from './UserEditForm';
 
 interface UserManagementProps {
   classes: any[];
+  onBack?: () => void; // 添加可选的 onBack prop
 }
 
 export const UserManagement: React.FC<UserManagementProps> = ({ onBack, classes }) => {
@@ -105,6 +106,28 @@ export const UserManagement: React.FC<UserManagementProps> = ({ onBack, classes 
     }
   };
 
+  // 修复日期格式化函数
+  const formatUserDate = (createdAt: any) => {
+    try {
+      // 处理 Firestore Timestamp
+      if (createdAt && typeof createdAt.toDate === 'function') {
+        return createdAt.toDate().toLocaleDateString();
+      }
+      // 处理普通 Date 对象
+      else if (createdAt instanceof Date) {
+        return createdAt.toLocaleDateString();
+      }
+      // 处理时间戳或字符串
+      else if (createdAt) {
+        return new Date(createdAt).toLocaleDateString();
+      }
+      return 'Unknown';
+    } catch (error) {
+      console.error('Error formatting date:', error);
+      return 'Unknown';
+    }
+  };
+
   // Load users when component mounts
   useEffect(() => {
     loadUsers();
@@ -112,6 +135,13 @@ export const UserManagement: React.FC<UserManagementProps> = ({ onBack, classes 
 
   return (
     <div className="space-y-6">
+      {/* Back button (如果提供了 onBack prop) */}
+      {onBack && (
+        <Button variant="outline" onClick={onBack}>
+          ← Back
+        </Button>
+      )}
+
       {/* Search and Filter */}
       <div className="flex gap-4">
         <Input
@@ -171,20 +201,7 @@ export const UserManagement: React.FC<UserManagementProps> = ({ onBack, classes 
                       <span className="text-sm text-muted-foreground">@{user.username}</span>
                     </div>
                     <p className="text-sm text-muted-foreground">
-                      Created: {(() => {
-                        try {
-                          if (user.createdAt?.toDate) {
-                            return user.createdAt.toDate().toLocaleDateString();
-                          } else if (user.createdAt instanceof Date) {
-                            return user.createdAt.toLocaleDateString();
-                          } else if (user.createdAt) {
-                            return new Date(user.createdAt).toLocaleDateString();
-                          }
-                          return 'Unknown';
-                        } catch (error) {
-                          return 'Unknown';
-                        }
-                      })()}
+                      Created: {formatUserDate(user.createdAt)}
                     </p>
                   </div>
                   <div className="flex gap-2">

@@ -5,11 +5,12 @@ import { TeacherDashboard } from "@/components/TeacherDashboard";
 import { AdminDashboard } from "@/components/AdminDashboard";
 import { AssignmentPage } from "@/components/AssignmentPage";
 import { AnnouncementPage } from "@/components/AnnouncementPage";
+import { ForumPage } from "@/components/ForumPage"; // 添加Forum导入
 import { AppSidebar, TopBar } from "@/components/Navigation";
 import { SidebarProvider } from "@/components/ui/sidebar";
 import { useAuth } from "@/contexts/AuthContext";
 
-type CurrentPage = "dashboard" | "assignments" | "announcements";
+type CurrentPage = "dashboard" | "assignments" | "announcements" | "forum"; // 添加forum
 
 const Index = () => {
   const { user, loading } = useAuth();
@@ -64,6 +65,14 @@ const Index = () => {
               
               {currentPage === "announcements" && (
                 <AnnouncementPage userRole={user.role} />
+              )}
+              
+              {/* 添加Forum页面 */}
+              {currentPage === "forum" && (
+                <ForumPage 
+                  userRole={user.role} 
+                  currentUserName={user.displayName}
+                />
               )}
             </div>
           </main>

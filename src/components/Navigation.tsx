@@ -1,6 +1,6 @@
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { BookOpen, Home, Bell, LogOut, User, Heart, Star } from "lucide-react";
+import { BookOpen, Home, Bell, LogOut, User, Heart, Star, MessageSquare } from "lucide-react"; // 添加MessageSquare
 import { useAuth } from "@/contexts/AuthContext";
 import {
   Sidebar,
@@ -20,8 +20,8 @@ import { User as UserType } from "@/lib/types";
 
 interface AppSidebarProps {
   user: UserType;
-  currentPage: "dashboard" | "assignments" | "announcements";
-  onNavigate: (page: "dashboard" | "assignments" | "announcements") => void;
+  currentPage: "dashboard" | "assignments" | "announcements" | "forum"; // 添加forum
+  onNavigate: (page: "dashboard" | "assignments" | "announcements" | "forum") => void; // 添加forum
 }
 
 export const AppSidebar = ({ user, currentPage, onNavigate }: AppSidebarProps) => {
@@ -47,6 +47,13 @@ export const AppSidebar = ({ user, currentPage, onNavigate }: AppSidebarProps) =
       page: "announcements" as const, 
       icon: Bell,
       badge: user.role === "parent" ? 3 : null,
+    },
+    // 添加Forum选项
+    {
+      title: "Forum",
+      page: "forum" as const,
+      icon: MessageSquare,
+      badge: null,
     },
   ];
 
