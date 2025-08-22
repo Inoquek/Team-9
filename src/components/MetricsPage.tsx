@@ -75,10 +75,8 @@ export const MetricsPage: React.FC<MetricsPageProps> = ({ userRole }) => {
                 <CartesianGrid strokeDasharray="3 3" />
                 <XAxis
                   dataKey="subject"
-                  angle={-45}
-                  textAnchor="end"
                   interval={0}
-                  height={100}
+                  height={60}
                   tick={{ fontSize: 12 }}
                 />
                 <YAxis />
