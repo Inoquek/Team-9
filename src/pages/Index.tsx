@@ -5,11 +5,12 @@ import { TeacherDashboard } from "@/components/TeacherDashboard";
 import { AdminDashboard } from "@/components/AdminDashboard";
 import { AssignmentPage } from "@/components/AssignmentPage";
 import { AnnouncementPage } from "@/components/AnnouncementPage";
+import { MetricsPage } from "@/components/MetricsPage";
 import { AppSidebar, TopBar } from "@/components/Navigation";
 import { SidebarProvider } from "@/components/ui/sidebar";
 import { useAuth } from "@/contexts/AuthContext";
 
-type CurrentPage = "dashboard" | "assignments" | "announcements";
+type CurrentPage = "dashboard" | "assignments" | "announcements" | "metrics";
 
 const Index = () => {
   const { user, loading } = useAuth();
@@ -64,6 +65,9 @@ const Index = () => {
               
               {currentPage === "announcements" && (
                 <AnnouncementPage userRole={user.role} />
+              )}
+              {currentPage === "metrics" && (
+                <MetricsPage userRole={user.role} />
               )}
             </div>
           </main>
