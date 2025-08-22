@@ -1,6 +1,6 @@
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { BookOpen, Home, Bell, LogOut, User, Heart, Star } from "lucide-react";
+import { BookOpen, Home, Bell, LogOut, User, Heart, Star, BarChart3 } from "lucide-react";
 import {
   Sidebar,
   SidebarContent,
@@ -18,8 +18,8 @@ import {
 
 interface AppSidebarProps {
   userRole: "parent" | "teacher";
-  currentPage: "dashboard" | "assignments" | "announcements";
-  onNavigate: (page: "dashboard" | "assignments" | "announcements") => void;
+  currentPage: "dashboard" | "assignments" | "announcements" | "metrics";
+  onNavigate: (page: "dashboard" | "assignments" | "announcements" | "metrics" ) => void;
   onLogout: () => void;
 }
 
@@ -47,6 +47,12 @@ export const AppSidebar = ({ userRole, currentPage, onNavigate, onLogout }: AppS
       page: "announcements" as const, 
       icon: Bell,
       badge: userRole === "parent" ? 3 : null,
+    },
+    {
+      title: "Metrics",
+      page: "metrics" as const,
+      icon: BarChart3,
+      badge: null,
     },
   ];
 
