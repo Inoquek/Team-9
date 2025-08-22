@@ -22,9 +22,13 @@ interface AppSidebarProps {
   user: UserType;
   currentPage: "dashboard" | "assignments" | "announcements";
   onNavigate: (page: "dashboard" | "assignments" | "announcements") => void;
+  badgeCounts?: {
+    assignments: number;
+    announcements: number;
+  };
 }
 
-export const AppSidebar = ({ user, currentPage, onNavigate }: AppSidebarProps) => {
+export const AppSidebar = ({ user, currentPage, onNavigate, badgeCounts }: AppSidebarProps) => {
   const { state } = useSidebar();
   const { signOut } = useAuth();
   const isCollapsed = state === "collapsed";
@@ -40,13 +44,13 @@ export const AppSidebar = ({ user, currentPage, onNavigate }: AppSidebarProps) =
       title: "Assignments", 
       page: "assignments" as const,
       icon: BookOpen,
-      badge: user.role === "parent" ? 2 : null,
+      badge: user.role === "parent" && badgeCounts ? badgeCounts.assignments : null,
     },
     {
       title: "Announcements",
       page: "announcements" as const, 
       icon: Bell,
-      badge: user.role === "parent" ? 3 : null,
+      badge: user.role === "parent" && badgeCounts ? badgeCounts.announcements : null,
     },
   ];
 

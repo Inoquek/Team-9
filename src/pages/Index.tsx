@@ -8,15 +8,21 @@ import { AnnouncementPage } from "@/components/AnnouncementPage";
 import { AppSidebar, TopBar } from "@/components/Navigation";
 import { SidebarProvider } from "@/components/ui/sidebar";
 import { useAuth } from "@/contexts/AuthContext";
+import { TeacherClassProvider } from "@/contexts/TeacherClassContext";
 
 type CurrentPage = "dashboard" | "assignments" | "announcements";
 
 const Index = () => {
   const { user, loading } = useAuth();
   const [currentPage, setCurrentPage] = useState<CurrentPage>("dashboard");
+  const [badgeCounts, setBadgeCounts] = useState({ assignments: 0, announcements: 0 });
 
   const handleNavigate = (page: CurrentPage) => {
     setCurrentPage(page);
+  };
+
+  const handleBadgeCountsUpdate = (counts: { assignments: number; announcements: number }) => {
+    setBadgeCounts(counts);
   };
 
   // Show loading spinner while checking auth
@@ -36,39 +42,47 @@ const Index = () => {
   // Main application layout with sidebar
   return (
     <SidebarProvider>
-      <div className="min-h-screen flex w-full bg-background">
-        <AppSidebar 
-          user={user}
-          currentPage={currentPage}
-          onNavigate={handleNavigate}
-        />
-        
-        <div className="flex-1 flex flex-col">
-          <TopBar user={user} />
+      <TeacherClassProvider>
+        <div className="min-h-screen flex w-full bg-background">
+          <AppSidebar 
+            user={user}
+            currentPage={currentPage}
+            onNavigate={handleNavigate}
+            badgeCounts={badgeCounts}
+          />
           
-          <main className="flex-1 p-6 overflow-auto">
-            <div className="max-w-7xl mx-auto">
-              {currentPage === "dashboard" && (
-                user.role === "parent" ? (
-                  <ParentDashboard onNavigate={handleNavigate} />
-                ) : user.role === "teacher" ? (
-                  <TeacherDashboard onNavigate={handleNavigate} />
-                ) : (
-                  <AdminDashboard onNavigate={handleNavigate} />
-                )
-              )}
-              
-              {currentPage === "assignments" && (
-                <AssignmentPage userRole={user.role} />
-              )}
-              
-              {currentPage === "announcements" && (
-                <AnnouncementPage userRole={user.role} />
-              )}
-            </div>
-          </main>
+          <div className="flex-1 flex flex-col">
+            <TopBar user={user} />
+            
+            <main className="flex-1 p-6 overflow-auto">
+              <div className="max-w-7xl mx-auto">
+                {currentPage === "dashboard" && (
+                  <>
+                    {user.role === "parent" ? (
+                      <ParentDashboard 
+                        onNavigate={handleNavigate} 
+                        onBadgeCountsUpdate={handleBadgeCountsUpdate}
+                      />
+                    ) : user.role === "teacher" ? (
+                      <TeacherDashboard onNavigate={handleNavigate} />
+                    ) : (
+                      <AdminDashboard onNavigate={handleNavigate} />
+                    )}
+                  </>
+                )}
+                
+                {currentPage === "assignments" && (
+                  <AssignmentPage userRole={user.role} />
+                )}
+                
+                {currentPage === "announcements" && (
+                  <AnnouncementPage userRole={user.role} />
+                )}
+              </div>
+            </main>
+          </div>
         </div>
-      </div>
+      </TeacherClassProvider>
     </SidebarProvider>
   );
 };

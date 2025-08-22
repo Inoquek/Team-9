@@ -158,6 +158,74 @@ export class ClassService {
     }
   }
 
+  // Move student from one class to another (efficient method)
+  static async moveStudentBetweenClasses(studentId: string, oldClassId: string | null, newClassId: string | null): Promise<void> {
+    try {
+      // Update student's classId
+      await updateDoc(doc(db, 'students', studentId), {
+        classId: newClassId
+      });
+
+      // Remove from old class if it exists
+      if (oldClassId) {
+        const oldClassRef = doc(db, 'classes', oldClassId);
+        const oldClassDoc = await getDoc(oldClassRef);
+        if (oldClassDoc.exists()) {
+          const currentStudents = oldClassDoc.data().students || [];
+          const updatedStudents = currentStudents.filter((id: string) => id !== studentId);
+          await updateDoc(oldClassRef, {
+            students: updatedStudents
+          });
+        }
+      }
+
+      // Add to new class if it exists
+      if (newClassId) {
+        const newClassRef = doc(db, 'classes', newClassId);
+        const newClassDoc = await getDoc(newClassRef);
+        if (newClassDoc.exists()) {
+          const currentStudents = newClassDoc.data().students || [];
+          if (!currentStudents.includes(studentId)) {
+            await updateDoc(newClassRef, {
+              students: [...currentStudents, studentId]
+            });
+          }
+        }
+      }
+    } catch (error) {
+      console.error('Move student between classes error:', error);
+      throw error;
+    }
+  }
+
+  // Sync class students array with actual student records (for data consistency)
+  static async syncClassStudents(classId: string): Promise<void> {
+    try {
+      // Get actual students in this class
+      const actualStudents = await this.getClassStudents(classId);
+      const actualStudentIds = actualStudents.map(student => student.id);
+      
+      // Get current class document
+      const classRef = doc(db, 'classes', classId);
+      const classDoc = await getDoc(classRef);
+      
+      if (classDoc.exists()) {
+        const currentStudents = classDoc.data().students || [];
+        
+        // Update if there's a mismatch
+        if (JSON.stringify(currentStudents.sort()) !== JSON.stringify(actualStudentIds.sort())) {
+          await updateDoc(classRef, {
+            students: actualStudentIds
+          });
+          console.log(`Synced class ${classId} students array with actual records`);
+        }
+      }
+    } catch (error) {
+      console.error('Sync class students error:', error);
+      throw error;
+    }
+  }
+
   // Listen to class updates
   static subscribeToClass(classId: string, callback: (classData: Class | null) => void) {
     return onSnapshot(doc(db, 'classes', classId), (doc) => {
