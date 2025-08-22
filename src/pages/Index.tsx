@@ -4,11 +4,12 @@ import { ParentDashboard } from "@/components/ParentDashboard";
 import { TeacherDashboard } from "@/components/TeacherDashboard";
 import { AssignmentPage } from "@/components/AssignmentPage";
 import { AnnouncementPage } from "@/components/AnnouncementPage";
+import { MetricsPage } from "@/components/MetricsPage"; 
 import { AppSidebar, TopBar } from "@/components/Navigation";
 import { SidebarProvider } from "@/components/ui/sidebar";
 
 type UserRole = "parent" | "teacher" | null;
-type CurrentPage = "dashboard" | "assignments" | "announcements";
+type CurrentPage = "dashboard" | "assignments" | "announcements" | "metrics";
 
 const Index = () => {
   const [userRole, setUserRole] = useState<UserRole>(null);
@@ -64,6 +65,10 @@ const Index = () => {
               {currentPage === "announcements" && (
                 <AnnouncementPage userRole={userRole} />
               )}
+              {currentPage === "metrics" && (
+                <MetricsPage userRole={userRole} />
+              )}
+              
             </div>
           </main>
         </div>
