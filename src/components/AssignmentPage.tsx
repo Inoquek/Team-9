@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -7,18 +7,153 @@ import { Textarea } from "@/components/ui/textarea";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { BookOpen, Calendar, Clock, CheckCircle, Plus, Edit, Trash2, Eye, Users, MessageCircle, File, Download } from "lucide-react";
+import { Progress } from "@/components/ui/progress";
+import { BookOpen, Calendar, Clock, CheckCircle, Plus, Edit, Trash2, Eye, Users, MessageCircle, File, Download, Play, Pause, Square, Upload, X, Star, Trophy, Target, FileText, ExternalLink } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
-import { AssignmentService } from "@/lib/services/assignments";
-import { Assignment, AssignmentWithComments, Comment } from "@/lib/types";
+import { AssignmentService, SubmissionService } from "@/lib/services/assignments";
+import { StorageService } from "@/lib/services/storage";
+import { Assignment, AssignmentWithComments, Comment, Submission, SubmissionFile } from "@/lib/types";
 import { CommentSection } from "./CommentSection";
 import { FileViewer } from "./FileViewer";
 import { collection, query, where, getDocs } from "firebase/firestore";
-import { db } from "@/lib/firebase";
+import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
+import { db, storage, auth } from "@/lib/firebase";
 
 // Define missing constants
 const SUBJECTS = ['alphabet-time', 'vocabulary-time', 'sight-words-time', 'reading-time', 'post-programme-test'];
+
+// Storage keys for persistence
+const DAILY_STORAGE_KEY = "study_sessions_v1";
+const STOPWATCH_STORAGE_KEY = "study_stopwatch_v1";
+const SUBMISSIONS_STORAGE_KEY = "assignment_submissions";
+const LIMIT_SECONDS = 30 * 60; // 30 minutes limit
+
+// Types for file uploads
+interface FileUpload {
+  id: string;
+  name: string;
+  type: string;
+  size: number;
+  dataUrl: string;
+  uploadedAt: string;
+}
+
+// Types for study tracking
+interface StudyEntry {
+  date: string;
+  minutes: number;
+}
+
+interface StopwatchState {
+  running: boolean;
+  startAt: number | null;
+  elapsedBefore: number;
+  assignmentId: string | null;
+  title: string | null;
+}
+
+interface AssignmentSubmission {
+  assignmentId: string;
+  files: FileUpload[];
+  note: string;
+  submittedAt: string;
+  timeSpent: number; // in seconds
+}
+
+// Helper functions
+const todayISO = (): string => new Date().toISOString().split('T')[0];
+
+const bytesToHuman = (bytes: number): string => {
+  if (bytes === 0) return '0 Bytes';
+  const k = 1024;
+  const sizes = ['Bytes', 'KB', 'MB', 'GB'];
+  const i = Math.floor(Math.log(bytes) / Math.log(k));
+  return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+};
+
+const fileToDataURL = (file: File): Promise<string> => {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(reader.result as string);
+    reader.onerror = reject;
+    reader.readAsDataURL(file);
+  });
+};
+
+// Study tracking functions
+const loadDaily = (): StudyEntry[] => {
+  try {
+    const stored = localStorage.getItem(DAILY_STORAGE_KEY);
+    return stored ? JSON.parse(stored) : [];
+  } catch {
+    return [];
+  }
+};
+
+const saveDaily = (entries: StudyEntry[]): void => {
+  localStorage.setItem(DAILY_STORAGE_KEY, JSON.stringify(entries));
+};
+
+const addStudyMinutes = (minutes: number): void => {
+  const entries = loadDaily();
+  const today = todayISO();
+  const todayEntry = entries.find(e => e.date === today);
+  
+  if (todayEntry) {
+    todayEntry.minutes += minutes;
+  } else {
+    entries.push({ date: today, minutes });
+  }
+  
+  saveDaily(entries);
+};
+
+const getTodayMinutes = (): number => {
+  const entries = loadDaily();
+  const today = todayISO();
+  const todayEntry = entries.find(e => e.date === today);
+  return todayEntry?.minutes || 0;
+};
+
+const getTodayCompletedAssignments = (): number => {
+  try {
+    const stored = localStorage.getItem(SUBMISSIONS_STORAGE_KEY);
+    const submissions: AssignmentSubmission[] = stored ? JSON.parse(stored) : [];
+    const today = todayISO();
+    return submissions.filter(s => s.submittedAt.startsWith(today)).length;
+  } catch {
+    return 0;
+  }
+};
+
+// Stopwatch functions
+const loadStopwatch = (): StopwatchState => {
+  try {
+    const stored = localStorage.getItem(STOPWATCH_STORAGE_KEY);
+    return stored ? JSON.parse(stored) : {
+      running: false,
+      startAt: null,
+      elapsedBefore: 0,
+      assignmentId: null,
+      title: null
+    };
+  } catch {
+    return {
+      running: false,
+      startAt: null,
+      elapsedBefore: 0,
+      assignmentId: null,
+      title: null
+    };
+  }
+};
+
+const saveStopwatch = (state: Partial<StopwatchState>): void => {
+  const current = loadStopwatch();
+  const updated = { ...current, ...state };
+  localStorage.setItem(STOPWATCH_STORAGE_KEY, JSON.stringify(updated));
+};
 
 interface AssignmentPageProps {
   userRole: "parent" | "teacher" | "admin";
@@ -33,7 +168,7 @@ export const AssignmentPage = ({ userRole }: AssignmentPageProps) => {
   const [selectedAssignment, setSelectedAssignment] = useState<AssignmentWithComments | null>(null);
   const [showComments, setShowComments] = useState<string | null>(null);
   
-  // Add missing state variables
+  // Existing state variables
   const [isAssignDialogOpen, setIsAssignDialogOpen] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [draft, setDraft] = useState({
@@ -45,6 +180,450 @@ export const AssignmentPage = ({ userRole }: AssignmentPageProps) => {
     points: 10,
     estimatedTime: 30
   });
+
+  // New state variables for the requested functionality
+  const [todayMinutes, setTodayMinutes] = useState(0);
+  const [todayCompletedAssignments, setTodayCompletedAssignments] = useState(0);
+  const [running, setRunning] = useState(false);
+  const [elapsedSec, setElapsedSec] = useState(0);
+  const [currentAssignmentId, setCurrentAssignmentId] = useState<string | null>(null);
+  const [submitDialogOpen, setSubmitDialogOpen] = useState<string | null>(null);
+  const [uploadedFiles, setUploadedFiles] = useState<FileUpload[]>([]);
+  const [submissionNote, setSubmissionNote] = useState("");
+  const [isUploading, setIsUploading] = useState(false);
+  const [completionAnimation, setCompletionAnimation] = useState<string | null>(null);
+  const [stopwatchMinimized, setStopwatchMinimized] = useState(false);
+  const [submissions, setSubmissions] = useState<Submission[]>([]);
+  
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const intervalRef = useRef<NodeJS.Timeout | null>(null);
+
+  // Initialize state from localStorage
+  useEffect(() => {
+    setTodayMinutes(getTodayMinutes());
+    setTodayCompletedAssignments(getTodayCompletedAssignments());
+    
+    // Restore stopwatch state
+    const stopwatchState = loadStopwatch();
+    if (stopwatchState.running && stopwatchState.startAt) {
+      const now = Date.now();
+      const elapsed = Math.floor((now - stopwatchState.startAt) / 1000);
+      const totalElapsed = Math.min((stopwatchState.elapsedBefore || 0) + elapsed, LIMIT_SECONDS);
+      
+      setElapsedSec(totalElapsed);
+      setRunning(totalElapsed < LIMIT_SECONDS);
+      setCurrentAssignmentId(stopwatchState.assignmentId);
+      
+      // Auto-stop if limit reached
+      if (totalElapsed >= LIMIT_SECONDS) {
+        stopAndSave(true);
+      }
+    } else {
+      setElapsedSec(stopwatchState.elapsedBefore || 0);
+      setRunning(false);
+      setCurrentAssignmentId(stopwatchState.assignmentId);
+    }
+  }, []);
+
+  // Load user submissions
+  useEffect(() => {
+    const loadUserSubmissions = async () => {
+      if (!user || userRole !== 'parent') return;
+      
+      try {
+        // Get submissions for the current user (parent)
+        const userSubmissions = await SubmissionService.getStudentSubmissions(user.uid);
+        setSubmissions(userSubmissions);
+      } catch (error) {
+        console.error('Error loading user submissions:', error);
+      }
+    };
+
+    loadUserSubmissions();
+  }, [user, userRole]);
+
+  // Helper function to find submission by assignment ID
+  const findSubmissionByAssignment = (assignmentId: string): Submission | undefined => {
+    return submissions.find(sub => sub.assignmentId === assignmentId);
+  };
+
+  // Stopwatch interval
+  useEffect(() => {
+    if (running) {
+      intervalRef.current = setInterval(() => {
+        const stopwatchState = loadStopwatch();
+        if (stopwatchState.running && stopwatchState.startAt) {
+          const now = Date.now();
+          const elapsed = Math.floor((now - stopwatchState.startAt) / 1000);
+          const totalElapsed = Math.min((stopwatchState.elapsedBefore || 0) + elapsed, LIMIT_SECONDS);
+          
+          setElapsedSec(totalElapsed);
+          
+          // Auto-stop at limit
+          if (totalElapsed >= LIMIT_SECONDS) {
+            stopAndSave(true);
+          }
+        }
+      }, 1000);
+    } else {
+      if (intervalRef.current) {
+        clearInterval(intervalRef.current);
+        intervalRef.current = null;
+      }
+    }
+
+    return () => {
+      if (intervalRef.current) {
+        clearInterval(intervalRef.current);
+      }
+    };
+  }, [running]);
+
+  // Stopwatch functions
+  const startStopwatch = (assignment: AssignmentWithComments) => {
+    const state = loadStopwatch();
+    
+    // If already running for this assignment, just return
+    if (state.running && state.assignmentId === assignment.id) {
+      return;
+    }
+    
+    // Stop any existing session first
+    if (state.running) {
+      stopAndSave(true);
+    }
+    
+    // Start new session
+    saveStopwatch({
+      running: true,
+      startAt: Date.now(),
+      elapsedBefore: 0,
+      assignmentId: assignment.id,
+      title: assignment.title
+    });
+    
+    setRunning(true);
+    setElapsedSec(0);
+    setCurrentAssignmentId(assignment.id);
+    setStopwatchMinimized(false); // Show dialog when starting
+    
+    toast({
+      title: "Timer Started",
+      description: `Started working on "${assignment.title}"`,
+    });
+  };
+
+  const togglePause = () => {
+    const state = loadStopwatch();
+    
+    if (running) {
+      // Pause
+      const now = Date.now();
+      const extra = state.startAt ? Math.floor((now - state.startAt) / 1000) : 0;
+      const nextElapsed = Math.min((state.elapsedBefore || 0) + extra, LIMIT_SECONDS);
+      
+      saveStopwatch({
+        running: false,
+        startAt: null,
+        elapsedBefore: nextElapsed
+      });
+      
+      setElapsedSec(nextElapsed);
+      setRunning(false);
+    } else {
+      // Resume
+      if ((state.elapsedBefore || 0) >= LIMIT_SECONDS) return;
+      
+      saveStopwatch({
+        running: true,
+        startAt: Date.now()
+      });
+      
+      setRunning(true);
+    }
+  };
+
+  const stopAndSave = (isAuto: boolean = false) => {
+    const state = loadStopwatch();
+    const now = Date.now();
+    const extra = state.running && state.startAt ? Math.floor((now - state.startAt) / 1000) : 0;
+    const finalSec = Math.min((state.elapsedBefore || 0) + extra, LIMIT_SECONDS);
+    
+    // Clear stopwatch state
+    saveStopwatch({
+      running: false,
+      startAt: null,
+      elapsedBefore: 0,
+      assignmentId: null,
+      title: null
+    });
+    
+    setRunning(false);
+    setElapsedSec(0);
+    setCurrentAssignmentId(null);
+    setStopwatchMinimized(false); // Reset minimized state
+    
+    // Add minutes to daily total
+    const minutes = Math.floor(finalSec / 60);
+    if (minutes > 0) {
+      addStudyMinutes(minutes);
+      setTodayMinutes(getTodayMinutes());
+    }
+    
+    if (!isAuto) {
+      toast({
+        title: "Timer Stopped",
+        description: `Session completed! ${minutes} minutes added to your daily total.`,
+      });
+    }
+  };
+
+  // File upload functions
+  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files;
+    if (!files || files.length === 0) return;
+
+    setIsUploading(true);
+    const newFiles: FileUpload[] = [];
+
+    try {
+      for (let i = 0; i < files.length; i++) {
+        const file = files[i];
+        
+        // Check file size (2MB limit)
+        if (file.size > 2 * 1024 * 1024) {
+          toast({
+            title: "File too large",
+            description: `${file.name} exceeds the 2MB size limit.`,
+            variant: "destructive"
+          });
+          continue;
+        }
+
+        // Check total files limit
+        if (uploadedFiles.length + newFiles.length >= 3) {
+          toast({
+            title: "Too many files",
+            description: "You can upload a maximum of 3 files.",
+            variant: "destructive"
+          });
+          break;
+        }
+
+        const dataUrl = await fileToDataURL(file);
+        const fileUpload: FileUpload = {
+          id: crypto.randomUUID(),
+          name: file.name,
+          type: file.type,
+          size: file.size,
+          dataUrl,
+          uploadedAt: new Date().toISOString()
+        };
+
+        newFiles.push(fileUpload);
+      }
+
+      setUploadedFiles(prev => [...prev, ...newFiles]);
+      
+      if (newFiles.length > 0) {
+        toast({
+          title: "Files uploaded",
+          description: `${newFiles.length} file(s) uploaded successfully.`,
+        });
+      }
+    } catch (error) {
+      toast({
+        title: "Upload failed",
+        description: "Failed to upload some files. Please try again.",
+        variant: "destructive"
+      });
+    } finally {
+      setIsUploading(false);
+      if (fileInputRef.current) {
+        fileInputRef.current.value = "";
+      }
+    }
+  };
+
+  const removeFile = (fileId: string) => {
+    setUploadedFiles(prev => prev.filter(f => f.id !== fileId));
+  };
+
+  const openSubmitDialog = (assignmentId: string) => {
+    setSubmitDialogOpen(assignmentId);
+    setUploadedFiles([]);
+    setSubmissionNote("");
+  };
+
+  const submitAssignment = async (assignmentId: string) => {
+    if (uploadedFiles.length === 0) {
+      toast({
+        title: "No files",
+        description: "Please upload at least one file before submitting.",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    if (!user) {
+      toast({
+        title: "Authentication Error",
+        description: "Please log in to submit assignments.",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    try {
+      setIsUploading(true);
+
+      // Get time spent on this assignment
+      const state = loadStopwatch();
+      const timeSpent = state.assignmentId === assignmentId ? 
+        (state.elapsedBefore || 0) + (state.running && state.startAt ? 
+          Math.floor((Date.now() - state.startAt) / 1000) : 0) : 0;
+
+      // Upload files to Firebase Storage
+      const uploadedSubmissionFiles: SubmissionFile[] = [];
+      
+      for (let i = 0; i < uploadedFiles.length; i++) {
+        const file = uploadedFiles[i];
+        
+        // Convert dataUrl back to Blob
+        const response = await fetch(file.dataUrl);
+        const blob = await response.blob();
+        
+        // Create upload path: submissions/{assignmentId}/{userId}/{timestamp}_{filename}
+        const timestamp = Date.now();
+        const uploadPath = `submissions/${assignmentId}/${user.uid}/${timestamp}_${file.name}`;
+        
+        try {
+          // Upload blob directly to storage
+          const storageRef = ref(storage, uploadPath);
+          const snapshot = await uploadBytes(storageRef, blob, {
+            contentType: file.type,
+            customMetadata: {
+              assignmentId: assignmentId,
+              originalName: file.name,
+              uploadedBy: user.uid,
+              submissionNote: submissionNote
+            }
+          });
+          
+          const downloadUrl = await getDownloadURL(snapshot.ref);
+          
+          const submissionFile: SubmissionFile = {
+            id: crypto.randomUUID(),
+            type: file.type, // Use the full MIME type
+            url: downloadUrl,
+            name: file.name,
+            size: file.size,
+            uploadedAt: new Date()
+          };
+          
+          uploadedSubmissionFiles.push(submissionFile);
+        } catch (uploadError) {
+          console.error(`Error uploading file ${file.name}:`, uploadError);
+          throw new Error(`Failed to upload ${file.name}`);
+        }
+      }
+
+      // Create submission object
+      const submissionData = {
+        assignmentId,
+        studentId: user.uid, // Using parent ID as student ID for now
+        parentId: user.uid,
+        files: uploadedSubmissionFiles,
+        comment: submissionNote, // Changed from notes to comment
+        studyTime: timeSpent, // Changed from timeSpent to studyTime
+        createdAt: new Date()
+      };
+
+      // Save submission to Firestore
+      console.log('Attempting to save submission:', submissionData);
+      console.log('User authenticated:', !!user, 'User ID:', user?.uid, 'User role:', user?.role);
+      console.log('Firebase user:', auth.currentUser?.uid);
+      
+      // Ensure user has a role for demo purposes - temporary fix
+      if (!user?.role) {
+        console.warn('User role not set, assuming parent role for submission');
+        // Don't throw error, just log warning and continue with parent role assumption
+      }
+      
+      const submissionId = await SubmissionService.submitHomework(submissionData);
+
+      // Update local submissions state
+      const newSubmission: Submission = {
+        id: submissionId,
+        assignmentId,
+        studentId: user.uid,
+        parentId: user.uid,
+        files: uploadedSubmissionFiles,
+        submittedAt: new Date(),
+        status: 'submitted',
+        comment: submissionNote,
+        studyTime: timeSpent,
+        createdAt: new Date()
+      };
+      
+      setSubmissions(prev => [newSubmission, ...prev]);
+
+      // Store locally as backup
+      try {
+        const stored = localStorage.getItem(SUBMISSIONS_STORAGE_KEY);
+        const localSubmissions: AssignmentSubmission[] = stored ? JSON.parse(stored) : [];
+        localSubmissions.push({
+          assignmentId,
+          files: uploadedFiles,
+          note: submissionNote,
+          submittedAt: new Date().toISOString(),
+          timeSpent
+        });
+        localStorage.setItem(SUBMISSIONS_STORAGE_KEY, JSON.stringify(localSubmissions));
+      } catch (storageError) {
+        console.warn('Could not save to localStorage:', storageError);
+      }
+
+      setSubmitDialogOpen(null);
+      setUploadedFiles([]);
+      setSubmissionNote("");
+
+      toast({
+        title: "Assignment submitted successfully!",
+        description: "Your work has been uploaded and submitted to your teacher.",
+      });
+
+    } catch (error) {
+      console.error('Error submitting assignment:', error);
+      toast({
+        title: "Submission failed", 
+        description: error instanceof Error ? error.message : "Failed to submit assignment. Please try again.",
+        variant: "destructive"
+      });
+    } finally {
+      setIsUploading(false);
+    }
+  };
+
+  const completeAssignment = (assignmentId: string) => {
+    // Stop timer if running for this assignment
+    const state = loadStopwatch();
+    if (state.running && state.assignmentId === assignmentId) {
+      stopAndSave();
+    }
+
+    // Trigger completion animation
+    setCompletionAnimation(assignmentId);
+    setTimeout(() => setCompletionAnimation(null), 2000);
+
+    // Update completed assignments count
+    setTodayCompletedAssignments(getTodayCompletedAssignments());
+
+    toast({
+      title: "🎉 Assignment Completed!",
+      description: "Great job! You've completed this assignment.",
+    });
+  };
 
   // Add missing functions
   const openCreate = () => {
@@ -370,6 +949,142 @@ export const AssignmentPage = ({ userRole }: AssignmentPageProps) => {
 
   return (
     <div className="space-y-6">
+      {/* Daily Stats Board - Only for parents */}
+      {userRole === "parent" && (
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <Card className="bg-gradient-to-r from-blue-500 to-blue-600 text-white">
+            <CardContent className="p-4">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-blue-100 text-sm">Study Time Today</p>
+                  <p className="text-3xl font-bold">{todayMinutes}m</p>
+                </div>
+                <Clock className="h-8 w-8 text-blue-200" />
+              </div>
+            </CardContent>
+          </Card>
+          
+          <Card className="bg-gradient-to-r from-green-500 to-green-600 text-white">
+            <CardContent className="p-4">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-green-100 text-sm">Completed Today</p>
+                  <p className="text-3xl font-bold">{todayCompletedAssignments}</p>
+                </div>
+                <Trophy className="h-8 w-8 text-green-200" />
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+      )}
+
+      {/* Previous Submissions - Only for parents */}
+      {userRole === "parent" && submissions.length > 0 && (
+        <Card className="bg-gradient-to-r from-purple-50 to-indigo-50 border-purple-200">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2 text-purple-800">
+              <FileText className="h-6 w-6" />
+              Your Previous Submissions
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-4 max-h-96 overflow-y-auto">
+              {submissions.map((submission) => (
+                <div key={submission.id} className="bg-white rounded-lg p-4 border border-purple-200 shadow-sm">
+                  <div className="flex items-start justify-between mb-3">
+                    <div>
+                      <h4 className="font-semibold text-gray-800">Assignment Submission</h4>
+                      <p className="text-sm text-gray-600">
+                        Submitted {new Date(submission.submittedAt).toLocaleDateString()}
+                      </p>
+                      {submission.studyTime && (
+                        <p className="text-sm text-purple-600 mt-1">
+                          Study Time: {Math.floor(submission.studyTime / 60)}min {submission.studyTime % 60}s
+                        </p>
+                      )}
+                    </div>
+                    <span className={`px-2 py-1 rounded-full text-xs font-medium ${
+                      submission.status === 'completed' 
+                        ? 'bg-green-100 text-green-800' 
+                        : submission.status === 'graded'
+                        ? 'bg-blue-100 text-blue-800'
+                        : 'bg-yellow-100 text-yellow-800'
+                    }`}>
+                      {submission.status.charAt(0).toUpperCase() + submission.status.slice(1)}
+                    </span>
+                  </div>
+                  
+                  {submission.comment && (
+                    <div className="bg-gray-50 rounded p-3 mb-3">
+                      <p className="text-sm text-gray-700">{submission.comment}</p>
+                    </div>
+                  )}
+
+                  {submission.files && submission.files.length > 0 && (
+                    <div className="mb-3">
+                      <h5 className="text-sm font-medium text-gray-700 mb-2">Files:</h5>
+                      <div className="grid gap-2 sm:grid-cols-2">
+                        {submission.files.map((file, index) => (
+                          <div key={index} className="flex items-center p-2 bg-gray-50 rounded border">
+                            <div className="flex-shrink-0 mr-2">
+                              {file.type.startsWith('image/') ? (
+                                <img 
+                                  src={file.url} 
+                                  alt={file.name}
+                                  className="w-8 h-8 object-cover rounded"
+                                />
+                              ) : file.type === 'application/pdf' ? (
+                                <div className="w-8 h-8 bg-red-100 rounded flex items-center justify-center">
+                                  <FileText className="w-4 h-4 text-red-600" />
+                                </div>
+                              ) : file.type.startsWith('video/') ? (
+                                <div className="w-8 h-8 bg-purple-100 rounded flex items-center justify-center">
+                                  <Play className="w-4 h-4 text-purple-600" />
+                                </div>
+                              ) : (
+                                <div className="w-8 h-8 bg-gray-100 rounded flex items-center justify-center">
+                                  <FileText className="w-4 h-4 text-gray-600" />
+                                </div>
+                              )}
+                            </div>
+                            <div className="flex-grow min-w-0">
+                              <p className="text-sm font-medium text-gray-900 truncate">{file.name}</p>
+                              <p className="text-xs text-gray-500">{(file.size / 1024 / 1024).toFixed(1)} MB</p>
+                            </div>
+                            <a
+                              href={file.url}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="flex-shrink-0 ml-2 p-1 bg-blue-100 hover:bg-blue-200 rounded transition-colors"
+                              title="View file"
+                            >
+                              <ExternalLink className="w-3 h-3 text-blue-600" />
+                            </a>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {submission.feedback && (
+                    <div className="p-3 bg-blue-50 rounded border border-blue-200">
+                      <div className="flex items-center mb-1">
+                        <MessageCircle className="w-4 h-4 text-blue-600 mr-1" />
+                        <span className="text-sm font-medium text-blue-800">Teacher Feedback</span>
+                      </div>
+                      <p className="text-sm text-blue-700">{submission.feedback}</p>
+                      {submission.grade !== undefined && (
+                        <p className="text-sm text-blue-600 mt-1 font-medium">Grade: {submission.grade}%</p>
+                      )}
+                    </div>
+                  )}
+                </div>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
       {/* Header */}
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
         <div>
@@ -553,6 +1268,271 @@ export const AssignmentPage = ({ userRole }: AssignmentPageProps) => {
               <CardContent className="space-y-4">
                 <p className="text-muted-foreground">{assignment.description}</p>
                 
+                {/* Time Spent Display */}
+                {userRole === "parent" && currentAssignmentId === assignment.id && elapsedSec > 0 && (
+                  <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
+                    <div className="flex items-center gap-2 text-blue-700">
+                      <Clock className="h-4 w-4" />
+                      <span className="text-sm font-medium">
+                        Time spent: {Math.floor(elapsedSec / 60)}m {elapsedSec % 60}s
+                      </span>
+                    </div>
+                  </div>
+                )}
+
+                {/* Parent Action Buttons */}
+                {userRole === "parent" && (
+                  <div className="flex flex-col sm:flex-row gap-3">
+                    <Dialog open={currentAssignmentId === assignment.id && running && !stopwatchMinimized} onOpenChange={(open) => {
+                      if (!open && running && currentAssignmentId === assignment.id) {
+                        // Minimize to floating widget instead of closing
+                        setStopwatchMinimized(true);
+                      }
+                    }}>
+                      <DialogTrigger asChild>
+                        <Button
+                          variant="outline"
+                          onClick={() => {
+                            if (running && currentAssignmentId === assignment.id) {
+                              // If timer is running for this assignment, show the dialog
+                              setStopwatchMinimized(false);
+                            } else {
+                              // Start the timer
+                              startStopwatch(assignment);
+                              setStopwatchMinimized(false);
+                            }
+                          }}
+                          disabled={running && currentAssignmentId !== assignment.id}
+                          className="flex-1"
+                        >
+                          <Play className="h-4 w-4 mr-2" />
+                          {running && currentAssignmentId === assignment.id ? "View Timer" : "Start Assignment"}
+                        </Button>
+                      </DialogTrigger>
+                      <DialogContent className="max-w-md">
+                        <DialogHeader>
+                          <DialogTitle>Working on: {assignment.title}</DialogTitle>
+                        </DialogHeader>
+                        <div className="flex flex-col items-center py-8">
+                          <div className="text-6xl font-mono font-bold mb-6">
+                            {String(Math.floor(elapsedSec / 60)).padStart(2, '0')}:
+                            {String(elapsedSec % 60).padStart(2, '0')}
+                          </div>
+                          
+                          <div className="flex gap-3 mb-4">
+                            <Button onClick={togglePause} variant={running ? "secondary" : "default"}>
+                              {running ? (
+                                <>
+                                  <Pause className="h-4 w-4 mr-2" />
+                                  Pause
+                                </>
+                              ) : (
+                                <>
+                                  <Play className="h-4 w-4 mr-2" />
+                                  Resume
+                                </>
+                              )}
+                            </Button>
+                            <Button variant="outline" onClick={() => setStopwatchMinimized(true)}>
+                              Minimize
+                            </Button>
+                            <Button variant="destructive" onClick={() => stopAndSave(false)}>
+                              <Square className="h-4 w-4 mr-2" />
+                              Done
+                            </Button>
+                          </div>
+                          
+                          <Progress 
+                            value={(elapsedSec / LIMIT_SECONDS) * 100} 
+                            className="w-full mb-2" 
+                          />
+                          <p className="text-xs text-muted-foreground text-center">
+                            Limit: {LIMIT_SECONDS / 60} minutes • Time will be added to your daily total when you stop
+                          </p>
+                        </div>
+                      </DialogContent>
+                    </Dialog>
+                    
+                    <Dialog open={submitDialogOpen === assignment.id} onOpenChange={(open) => {
+                      if (open) {
+                        openSubmitDialog(assignment.id);
+                      } else {
+                        setSubmitDialogOpen(null);
+                      }
+                    }}>
+                      <DialogTrigger asChild>
+                        <Button variant="secondary" className="flex-1">
+                          <Upload className="h-4 w-4 mr-2" />
+                          Submit Assignment
+                        </Button>
+                      </DialogTrigger>
+                      <DialogContent className="max-w-md">
+                        <DialogHeader>
+                          <DialogTitle>Submit: {assignment.title}</DialogTitle>
+                        </DialogHeader>
+                        <div className="space-y-4">
+                          <div>
+                            <Label htmlFor="submission-note">Note (optional)</Label>
+                            <Textarea
+                              id="submission-note"
+                              rows={3}
+                              value={submissionNote}
+                              onChange={(e) => setSubmissionNote(e.target.value)}
+                              placeholder="Add a note for your teacher..."
+                            />
+                          </div>
+                          
+                          <div>
+                            <Label>Upload Files (PDF or Images, max 2MB each, up to 3 files)</Label>
+                            <div 
+                              className="border-2 border-dashed border-muted-foreground/25 rounded-lg p-4 text-center cursor-pointer hover:bg-muted/50 transition"
+                              onClick={() => fileInputRef.current?.click()}
+                            >
+                              <Upload className="h-6 w-6 text-muted-foreground mx-auto mb-2" />
+                              <p className="text-sm text-muted-foreground">
+                                Click to upload files
+                              </p>
+                              <input
+                                ref={fileInputRef}
+                                type="file"
+                                multiple
+                                accept=".pdf,.jpg,.jpeg,.png"
+                                onChange={handleFileChange}
+                                className="hidden"
+                              />
+                            </div>
+                          </div>
+
+                          {/* Uploaded Files */}
+                          {uploadedFiles.length > 0 && (
+                            <div className="space-y-2">
+                              <Label>Uploaded Files:</Label>
+                              {uploadedFiles.map((file) => (
+                                <div key={file.id} className="flex items-center justify-between bg-muted rounded p-2">
+                                  <div className="flex items-center gap-2">
+                                    <File className="h-4 w-4" />
+                                    <div>
+                                      <p className="text-sm font-medium">{file.name}</p>
+                                      <p className="text-xs text-muted-foreground">{bytesToHuman(file.size)}</p>
+                                    </div>
+                                  </div>
+                                  <Button
+                                    size="sm"
+                                    variant="ghost"
+                                    onClick={() => removeFile(file.id)}
+                                  >
+                                    <X className="h-4 w-4" />
+                                  </Button>
+                                </div>
+                              ))}
+                            </div>
+                          )}
+
+                          <div className="flex gap-2">
+                            <Button 
+                              variant="outline" 
+                              onClick={() => setSubmitDialogOpen(null)}
+                              className="flex-1"
+                            >
+                              Cancel
+                            </Button>
+                            <Button 
+                              onClick={() => submitAssignment(assignment.id)}
+                              disabled={uploadedFiles.length === 0 || isUploading}
+                              className="flex-1"
+                            >
+                              {isUploading ? "Uploading..." : "Submit"}
+                            </Button>
+                          </div>
+                        </div>
+                      </DialogContent>
+                    </Dialog>
+                    
+                    <div className="relative">
+                      <Button
+                        variant="default"
+                        onClick={() => completeAssignment(assignment.id)}
+                        className="flex-1 bg-green-600 hover:bg-green-700"
+                      >
+                        <CheckCircle className="h-4 w-4 mr-2" />
+                        Complete Assignment
+                      </Button>
+                      
+                      {/* Completion Animation */}
+                      {completionAnimation === assignment.id && (
+                        <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+                          <div className="animate-ping">
+                            <Star className="h-8 w-8 text-yellow-500 fill-yellow-500" />
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                )}
+
+                {/* My Submission - Only for parents */}
+                {userRole === "parent" && findSubmissionByAssignment(assignment.id) && (
+                  <div className="bg-green-50 border border-green-200 rounded-lg p-4">
+                    <div className="flex items-center justify-between mb-3">
+                      <h4 className="font-medium text-green-800 flex items-center gap-2">
+                        <CheckCircle className="h-4 w-4" />
+                        Your Submission
+                      </h4>
+                      <Badge variant="secondary" className="text-green-700 bg-green-100">
+                        {findSubmissionByAssignment(assignment.id)?.status}
+                      </Badge>
+                    </div>
+                    
+                    <div className="space-y-2">
+                      <p className="text-sm text-green-700">
+                        Submitted: {new Date(findSubmissionByAssignment(assignment.id)?.submittedAt || new Date()).toLocaleString()}
+                      </p>
+                      
+                      {findSubmissionByAssignment(assignment.id)?.files.length! > 0 && (
+                        <div>
+                          <p className="text-sm font-medium text-green-800 mb-2">Uploaded Files:</p>
+                          <div className="space-y-1">
+                            {findSubmissionByAssignment(assignment.id)?.files.map((file, index) => (
+                              <div key={index} className="flex items-center justify-between bg-white rounded p-2 border">
+                                <div className="flex items-center gap-2">
+                                  <File className="h-4 w-4 text-green-600" />
+                                  <span className="text-sm">{file.name}</span>
+                                  <span className="text-xs text-muted-foreground">
+                                    ({bytesToHuman(file.size)})
+                                  </span>
+                                </div>
+                                <Button
+                                  size="sm"
+                                  variant="outline"
+                                  onClick={() => window.open(file.url, '_blank')}
+                                >
+                                  <Eye className="h-4 w-4 mr-1" />
+                                  View
+                                </Button>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+                      
+                      {findSubmissionByAssignment(assignment.id)?.feedback && (
+                        <div className="bg-blue-50 border border-blue-200 rounded p-3 mt-3">
+                          <h5 className="font-medium text-blue-800 mb-2">Teacher Feedback:</h5>
+                          <p className="text-sm text-blue-700">{findSubmissionByAssignment(assignment.id)?.feedback}</p>
+                          {findSubmissionByAssignment(assignment.id)?.grade && (
+                            <div className="mt-2 flex items-center gap-2">
+                              <Star className="h-4 w-4 text-yellow-500 fill-yellow-500" />
+                              <span className="text-sm font-medium text-blue-800">
+                                Grade: {findSubmissionByAssignment(assignment.id)?.grade}%
+                              </span>
+                            </div>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                )}
+
                 {/* Assignment Details */}
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
                   <div className="flex items-center space-x-2">
@@ -562,6 +1542,10 @@ export const AssignmentPage = ({ userRole }: AssignmentPageProps) => {
                   <div className="flex items-center space-x-2">
                     <Clock className="h-4 w-4 text-muted-foreground" />
                     <span>Est. Time: {assignment.estimatedTime} min</span>
+                  </div>
+                  <div className="flex items-center space-x-2">
+                    <Target className="h-4 w-4 text-muted-foreground" />
+                    <span>Points: {assignment.points}</span>
                   </div>
                 </div>
 
@@ -689,6 +1673,47 @@ export const AssignmentPage = ({ userRole }: AssignmentPageProps) => {
           )}
         </DialogContent>
       </Dialog>
+
+      {/* Floating Stopwatch Widget */}
+      {userRole === "parent" && (running || elapsedSec > 0) && stopwatchMinimized && (
+        <div className="fixed bottom-4 right-4 z-50">
+          <Card className="shadow-lg border-2 border-primary/20 cursor-pointer hover:scale-105 transition-transform">
+            <CardContent className="p-3">
+              <div className="flex items-center gap-3">
+                <div 
+                  className="text-center cursor-pointer"
+                  onClick={() => setStopwatchMinimized(false)}
+                >
+                  <div className="font-mono text-lg font-bold">
+                    {String(Math.floor(elapsedSec / 60)).padStart(2, '0')}:
+                    {String(elapsedSec % 60).padStart(2, '0')}
+                  </div>
+                  <div className="text-xs text-muted-foreground">
+                    {Math.floor(elapsedSec / 60)}/{LIMIT_SECONDS / 60}m
+                  </div>
+                </div>
+                
+                <div className="flex gap-1">
+                  <Button size="sm" variant="ghost" onClick={togglePause}>
+                    {running ? <Pause className="h-4 w-4" /> : <Play className="h-4 w-4" />}
+                  </Button>
+                  <Button size="sm" variant="ghost" onClick={() => stopAndSave(false)}>
+                    <Square className="h-4 w-4" />
+                  </Button>
+                </div>
+              </div>
+              
+              {/* Progress bar */}
+              <div className="mt-2">
+                <Progress 
+                  value={(elapsedSec / LIMIT_SECONDS) * 100} 
+                  className="h-1" 
+                />
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+      )}
     </div>
   );
 };
