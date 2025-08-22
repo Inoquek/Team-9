@@ -13,7 +13,6 @@ export const MetricsPage: React.FC<MetricsPageProps> = ({ userRole }) => {
   const isParent = userRole === 'parent';
   const isTeacherOrAdmin = userRole === 'teacher' || userRole === 'admin';
 
-  // Data for subject performance (parent: child vs. class average; teacher/admin: class averages)
   const subjectData = isParent
     ? [
         { subject: 'Alphabet Recognition', child: 85, classAvg: 80 },
@@ -30,15 +29,13 @@ export const MetricsPage: React.FC<MetricsPageProps> = ({ userRole }) => {
         { subject: 'Phonemic Awareness', classAvg: 84 },
       ];
 
-  // Data for submission rate (parent only)
   const submissionData = isParent
     ? [
-        { name: 'Submitted', value: 80 },
-        { name: 'Missed', value: 20 },
+        { name: 'Submitted', value: 80, fill: '#10b981' },
+        { name: 'Missed', value: 20, fill: '#ef4444' },
       ]
     : [];
 
-  // Data for grade improvement (parent only)
   const gradeData = isParent
     ? [
         { month: 'Jan', score: 82 },
@@ -48,11 +45,9 @@ export const MetricsPage: React.FC<MetricsPageProps> = ({ userRole }) => {
       ]
     : [];
 
-  // Data for parent engagement time (parent only, static for now)
-  const engagementTime = isParent ? 3.5 : 0; // Hours per week
-  const recommendedTime = 5; // Recommended hours per week
+  const engagementTime = isParent ? 3.5 : 0;
+  const recommendedTime = 5;
 
-  // Data for rankings (teacher/admin only)
   const rankings = isTeacherOrAdmin
     ? [
         { name: 'Student A', score: 92, rank: 1 },
@@ -66,7 +61,7 @@ export const MetricsPage: React.FC<MetricsPageProps> = ({ userRole }) => {
       <h2 className="text-2xl font-bold">
         {isParent ? 'Child Performance Metrics' : 'Class Performance Metrics'}
       </h2>
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+      <div className="grid grid-cols-1 gap-6">
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center">
@@ -75,13 +70,20 @@ export const MetricsPage: React.FC<MetricsPageProps> = ({ userRole }) => {
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <ResponsiveContainer width="100%" height={300}>
-              <BarChart data={subjectData}>
+            <ResponsiveContainer width="100%" height={400}>
+              <BarChart data={subjectData} margin={{ top: 20, right: 30, left: 20, bottom: 100 }}>
                 <CartesianGrid strokeDasharray="3 3" />
-                <XAxis dataKey="subject" />
+                <XAxis
+                  dataKey="subject"
+                  angle={-45}
+                  textAnchor="end"
+                  interval={0}
+                  height={100}
+                  tick={{ fontSize: 12 }}
+                />
                 <YAxis />
                 <Tooltip />
-                <Legend />
+                <Legend verticalAlign="top" />
                 {isParent && <Bar dataKey="child" name="Your Child" fill="#3b82f6" />}
                 <Bar dataKey="classAvg" name="Class Average" fill="#10b981" />
               </BarChart>
@@ -99,7 +101,7 @@ export const MetricsPage: React.FC<MetricsPageProps> = ({ userRole }) => {
             <CardContent>
               <ResponsiveContainer width="100%" height={300}>
                 <RechartsPieChart>
-                  <Pie data={submissionData} dataKey="value" nameKey="name" cx="50%" cy="50%" outerRadius={100} fill="#10b981" label />
+                  <Pie data={submissionData} dataKey="value" nameKey="name" cx="50%" cy="50%" outerRadius={100} label />
                   <Tooltip />
                   <Legend />
                 </RechartsPieChart>
