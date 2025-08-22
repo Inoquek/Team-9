@@ -72,6 +72,7 @@ function timeAgo(date: Date | string | { toDate: () => Date } | null | undefined
     else if (date instanceof Date) {
       d = date;
     }
+    
     // Handle string dates
     else if (typeof date === 'string') {
       d = new Date(date);
