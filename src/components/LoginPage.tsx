@@ -3,22 +3,144 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
-import { BookOpen, Heart, Star } from "lucide-react";
+import { BookOpen, Heart, Star, AlertCircle, User } from "lucide-react";
+import { useAuth } from "@/contexts/AuthContext";
+import { useToast } from "@/hooks/use-toast";
+import { UsernameService } from "@/lib/services/username";
+import { AuthService } from "@/lib/services/auth";
 
-interface LoginPageProps {
-  onLogin: (role: "parent" | "teacher") => void;
-}
-
-export const LoginPage = ({ onLogin }: LoginPageProps) => {
-  const [email, setEmail] = useState("");
+export const LoginPage = () => {
+  const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
-  const [role, setRole] = useState<"parent" | "teacher">("parent");
+  const [role, setRole] = useState<"parent" | "teacher" | "admin">("parent");
+  const [isLoading, setIsLoading] = useState(false);
+  const [isSignUp, setIsSignUp] = useState(false);
+  const [displayName, setDisplayName] = useState("");
+  const [usernameError, setUsernameError] = useState("");
+  
+  const { signIn, signUp } = useAuth();
+  const { toast } = useToast();
 
-  const handleSubmit = (e: React.FormEvent) => {
+  // Validate username in real-time
+  const handleUsernameChange = async (value: string) => {
+    setUsername(value);
+    setUsernameError("");
+
+    if (value.length >= 3) {
+      const validation = UsernameService.validateUsername(value);
+      if (!validation.isValid) {
+        setUsernameError(validation.message || "Invalid username");
+        return;
+      }
+
+      if (isSignUp) {
+        const isAvailable = await UsernameService.isUsernameAvailable(value);
+        if (!isAvailable) {
+          setUsernameError("Username is already taken");
+        }
+      }
+    }
+  };
+
+  // Simplify the handleSubmit function:
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    // For demo purposes, we'll just check if fields are filled
-    if (email && password) {
-      onLogin(role);
+    
+    // Client-side validation
+    const errors = [];
+    
+    if (!username || username.trim() === '') {
+      errors.push('Username is required');
+    }
+    
+    if (!password || password.trim() === '') {
+      errors.push('Password is required');
+    }
+    
+    if (isSignUp && (!displayName || displayName.trim() === '')) {
+      errors.push('Display name is required');
+    }
+
+    if (errors.length > 0) {
+      toast({
+        title: "Missing Information",
+        description: errors.join(', '),
+        variant: "destructive"
+      });
+      return;
+    }
+
+    if (usernameError) {
+      toast({
+        title: "Invalid Username",
+        description: usernameError,
+        variant: "destructive"
+      });
+      return;
+    }
+
+    setIsLoading(true);
+    
+    try {
+      if (isSignUp) {
+        await signUp(username.trim(), password, { 
+          role, 
+          displayName: displayName.trim()
+          // Only pass essential fields
+        });
+        toast({
+          title: "Account Created!",
+          description: "Welcome to KindyReach! You'll stay logged in forever.",
+        });
+      } else {
+        await signIn(username.trim(), password);
+        toast({
+          title: "Welcome Back!",
+          description: "You're now logged in permanently.",
+        });
+      }
+    } catch (error: any) {
+      toast({
+        title: "Authentication Error",
+        description: error.message || "Something went wrong. Please try again.",
+        variant: "destructive"
+      });
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const createFirstAdmin = async () => {
+    try {
+      await signUp("admin", "admin123", { 
+        role: "admin", 
+        displayName: "System Administrator" 
+      });
+      toast({
+        title: "Admin Created!",
+        description: "First admin account created successfully.",
+      });
+    } catch (error: any) {
+      toast({
+        title: "Error",
+        description: error.message || "Failed to create admin account.",
+        variant: "destructive"
+      });
+    }
+  };
+
+  const testUsernameLookup = async () => {
+    try {
+      const uid = await UsernameService.getUserByUsername("admin");
+      console.log("Username lookup result:", uid);
+      
+      if (uid) {
+        // Test getting user data
+        const userData = await AuthService.getUserData(uid);
+        console.log("User data:", userData);
+      }
+    } catch (error) {
+      console.error("Username lookup error:", error);
     }
   };
 
@@ -36,30 +158,39 @@ export const LoginPage = ({ onLogin }: LoginPageProps) => {
           </div>
           <div>
             <h1 className="text-3xl font-bold bg-gradient-to-r from-primary to-accent bg-clip-text text-transparent">
-              Little Learners
+              KindyReach
             </h1>
             <p className="text-muted-foreground mt-2">
-              Connecting families and teachers for kindergarten success
+              Empowering parents in their child's learning journey
             </p>
           </div>
         </div>
 
-        {/* Login Form */}
+        {/* Login/Signup Form */}
         <Card className="border-2 shadow-lg">
           <CardHeader className="text-center pb-4">
-            <CardTitle className="text-xl text-foreground">Welcome Back!</CardTitle>
+            <CardTitle className="text-xl text-foreground">
+              {isSignUp ? "Create Account" : "Welcome Back!"}
+            </CardTitle>
+            <p className="text-sm text-muted-foreground mt-2">
+              {isSignUp 
+                ? "Create your account once, stay logged in forever!" 
+                : "You'll stay logged in permanently"
+              }
+            </p>
           </CardHeader>
           <CardContent>
             <form onSubmit={handleSubmit} className="space-y-4">
               {/* Role Selection */}
               <div className="space-y-2">
                 <Label htmlFor="role">I am a:</Label>
-                <div className="grid grid-cols-2 gap-2">
+                <div className="grid grid-cols-3 gap-2">
                   <Button
                     type="button"
                     variant={role === "parent" ? "default" : "outline"}
                     onClick={() => setRole("parent")}
                     className="h-12"
+                    disabled={isLoading}
                   >
                     👨‍👩‍👧‍👦 Parent
                   </Button>
@@ -68,24 +199,64 @@ export const LoginPage = ({ onLogin }: LoginPageProps) => {
                     variant={role === "teacher" ? "default" : "outline"}
                     onClick={() => setRole("teacher")}
                     className="h-12"
+                    disabled={isLoading}
                   >
                     👩‍🏫 Teacher
+                  </Button>
+                  <Button
+                    type="button"
+                    variant={role === "admin" ? "default" : "outline"}
+                    onClick={() => setRole("admin")}
+                    className="h-12"
+                    disabled={isLoading}
+                  >
+                    👨‍💻 Admin
                   </Button>
                 </div>
               </div>
 
-              {/* Email */}
+              {/* Display Name (Sign Up Only) */}
+              {isSignUp && (
+                <div className="space-y-2">
+                  <Label htmlFor="displayName">Full Name</Label>
+                  <Input
+                    id="displayName"
+                    type="text"
+                    placeholder="Enter your full name"
+                    value={displayName}
+                    onChange={(e) => setDisplayName(e.target.value)}
+                    required
+                    className="h-12"
+                    disabled={isLoading}
+                  />
+                </div>
+              )}
+
+              {/* Username */}
               <div className="space-y-2">
-                <Label htmlFor="email">Email</Label>
-                <Input
-                  id="email"
-                  type="email"
-                  placeholder="your.email@example.com"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  required
-                  className="h-12"
-                />
+                <Label htmlFor="username">Username</Label>
+                <div className="relative">
+                  <User className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                  <Input
+                    id="username"
+                    type="text"
+                    placeholder="Choose a username"
+                    value={username}
+                    onChange={(e) => handleUsernameChange(e.target.value)}
+                    required
+                    className="h-12 pl-10"
+                    disabled={isLoading}
+                  />
+                </div>
+                {usernameError && (
+                  <div className="flex items-center space-x-2 text-sm text-destructive">
+                    <AlertCircle className="h-4 w-4" />
+                    <span>{usernameError}</span>
+                  </div>
+                )}
+                <p className="text-xs text-muted-foreground">
+                  Username must be 3-20 characters, letters, numbers, and underscores only
+                </p>
               </div>
 
               {/* Password */}
@@ -99,18 +270,75 @@ export const LoginPage = ({ onLogin }: LoginPageProps) => {
                   onChange={(e) => setPassword(e.target.value)}
                   required
                   className="h-12"
+                  disabled={isLoading}
                 />
               </div>
 
-              {/* Login Button */}
-              <Button type="submit" className="w-full h-12 text-lg font-semibold">
-                Sign In ✨
+              {/* Submit Button */}
+              <Button 
+                type="submit" 
+                className="w-full h-12 text-lg font-semibold"
+                disabled={isLoading || !!usernameError}
+              >
+                {isLoading ? (
+                  <div className="flex items-center space-x-2">
+                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+                    <span>Loading...</span>
+                  </div>
+                ) : (
+                  <span>{isSignUp ? "Create Account ✨" : "Sign In ✨"}</span>
+                )}
               </Button>
             </form>
 
-            <div className="mt-6 text-center text-sm text-muted-foreground">
-              Demo Login - Enter any email and password
+            {/* Toggle Sign Up/Login */}
+            <div className="mt-6 text-center">
+              <Button
+                variant="link"
+                onClick={() => setIsSignUp(!isSignUp)}
+                disabled={isLoading}
+                className="text-sm"
+              >
+                {isSignUp 
+                  ? "Already have an account? Sign in" 
+                  : "Don't have an account? Sign up"
+                }
+              </Button>
             </div>
+
+            {/* Permanent Login Notice */}
+            <div className="mt-4 p-3 bg-blue-50 border border-blue-200 rounded-lg">
+              <div className="flex items-center space-x-2 text-blue-800">
+                <Star className="h-4 w-4" />
+                <span className="text-sm font-medium">Permanent Login</span>
+              </div>
+              <p className="text-xs text-blue-700 mt-1">
+                Once you sign in, you'll stay logged in forever. No need to remember passwords!
+              </p>
+            </div>
+
+            {/* Temporary Admin Creation Button - REMOVE AFTER USE */}
+            <div className="mt-6 p-4 bg-yellow-50 border border-yellow-200 rounded-lg">
+              <div className="text-center">
+                <p className="text-sm text-yellow-800 mb-3">
+                  <strong>Development Only:</strong> Create first admin account
+                </p>
+                <Button
+                  onClick={createFirstAdmin}
+                  variant="outline"
+                  className="w-full"
+                >
+                  🛠️ Create First Admin Account
+                </Button>
+                <p className="text-xs text-yellow-600 mt-2">
+                  Use this button to create the first admin, then remove it
+                </p>
+              </div>
+            </div>
+
+            <Button onClick={testUsernameLookup} variant="outline" className="mt-2">
+              🔍 Debug Username Lookup
+            </Button>
           </CardContent>
         </Card>
       </div>

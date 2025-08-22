@@ -1,6 +1,7 @@
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { BookOpen, Home, Bell, LogOut, User, Heart, Star } from "lucide-react";
+import { useAuth } from "@/contexts/AuthContext";
 import {
   Sidebar,
   SidebarContent,
@@ -15,19 +16,18 @@ import {
   SidebarHeader,
   SidebarFooter,
 } from "@/components/ui/sidebar";
+import { User as UserType } from "@/lib/types";
 
 interface AppSidebarProps {
-  userRole: "parent" | "teacher";
+  user: UserType;
   currentPage: "dashboard" | "assignments" | "announcements";
   onNavigate: (page: "dashboard" | "assignments" | "announcements") => void;
-  onLogout: () => void;
 }
 
-export const AppSidebar = ({ userRole, currentPage, onNavigate, onLogout }: AppSidebarProps) => {
+export const AppSidebar = ({ user, currentPage, onNavigate }: AppSidebarProps) => {
   const { state } = useSidebar();
+  const { signOut } = useAuth();
   const isCollapsed = state === "collapsed";
-  const userName = userRole === "parent" ? "Sarah Johnson" : "Ms. Anderson";
-  const userType = userRole === "parent" ? "Parent" : "Teacher";
 
   const navigationItems = [
     {
@@ -40,15 +40,23 @@ export const AppSidebar = ({ userRole, currentPage, onNavigate, onLogout }: AppS
       title: "Assignments", 
       page: "assignments" as const,
       icon: BookOpen,
-      badge: userRole === "parent" ? 2 : null,
+      badge: user.role === "parent" ? 2 : null,
     },
     {
       title: "Announcements",
       page: "announcements" as const, 
       icon: Bell,
-      badge: userRole === "parent" ? 3 : null,
+      badge: user.role === "parent" ? 3 : null,
     },
   ];
+
+  const handleLogout = async () => {
+    try {
+      await signOut();
+    } catch (error) {
+      console.error('Logout error:', error);
+    }
+  };
 
   return (
     <Sidebar collapsible="icon">
@@ -62,9 +70,9 @@ export const AppSidebar = ({ userRole, currentPage, onNavigate, onLogout }: AppS
           {!isCollapsed && (
             <div className="min-w-0">
               <h1 className="text-lg font-bold bg-gradient-to-r from-primary to-accent bg-clip-text text-transparent truncate">
-                Little Learners
+                KindyReach
               </h1>
-              <p className="text-xs text-muted-foreground">Kindergarten Classroom</p>
+              <p className="text-xs text-muted-foreground">Learning Platform</p>
             </div>
           )}
         </div>
@@ -121,9 +129,9 @@ export const AppSidebar = ({ userRole, currentPage, onNavigate, onLogout }: AppS
                 </div>
               </div>
               <div className="min-w-0 flex-1">
-                <p className="text-sm font-medium text-foreground truncate">{userName}</p>
+                <p className="text-sm font-medium text-foreground truncate">{user.displayName}</p>
                 <div className="flex items-center space-x-1">
-                  <p className="text-xs text-muted-foreground">{userType}</p>
+                  <p className="text-xs text-muted-foreground capitalize">{user.role}</p>
                   <Star className="h-3 w-3 text-warning" />
                 </div>
               </div>
@@ -133,7 +141,7 @@ export const AppSidebar = ({ userRole, currentPage, onNavigate, onLogout }: AppS
             <Button
               variant="outline"
               size="sm"
-              onClick={onLogout}
+              onClick={handleLogout}
               className="w-full justify-start"
             >
               <LogOut className="h-4 w-4 mr-2" />
@@ -150,7 +158,7 @@ export const AppSidebar = ({ userRole, currentPage, onNavigate, onLogout }: AppS
             <Button
               variant="outline"
               size="sm"
-              onClick={onLogout}
+              onClick={handleLogout}
               className="w-full p-2"
             >
               <LogOut className="h-4 w-4" />
@@ -163,16 +171,18 @@ export const AppSidebar = ({ userRole, currentPage, onNavigate, onLogout }: AppS
 };
 
 interface TopBarProps {
-  userRole: "parent" | "teacher";
+  user: UserType;
 }
 
-export const TopBar = ({ userRole }: TopBarProps) => {
+export const TopBar = ({ user }: TopBarProps) => {
   return (
     <header className="h-12 flex items-center border-b border-border bg-card px-4">
       <SidebarTrigger className="mr-4" />
       <div className="flex-1">
         <h2 className="text-lg font-semibold text-foreground">
-          {userRole === "parent" ? "Parent Portal" : "Teacher Dashboard"}
+          {user.role === "parent" ? "Parent Portal" : 
+           user.role === "teacher" ? "Teacher Dashboard" : 
+           "Admin Dashboard"}
         </h2>
       </div>
     </header>

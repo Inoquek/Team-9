@@ -71,3 +71,61 @@ Yes, you can!
 To connect a domain, navigate to Project > Settings > Domains and click Connect Domain.
 
 Read more here: [Setting up a custom domain](https://docs.lovable.dev/tips-tricks/custom-domain#step-by-step-guide)
+
+## Firebase Setup & Deployment
+
+This project includes Firebase Firestore and Storage security rules that need to be deployed to your Firebase project.
+
+### Files
+
+- `firestore.rules` - Security rules for Firestore database
+- `storage.rules` - Security rules for Firebase Storage
+
+### Deployment
+
+To deploy these rules to your Firebase project:
+
+1. Install Firebase CLI (if not already installed):
+   ```bash
+   npm install -g firebase-tools
+   ```
+
+2. Login to Firebase:
+   ```bash
+   firebase login
+   ```
+
+3. Initialize Firebase in your project (if not already done):
+   ```bash
+   firebase init
+   ```
+
+4. Deploy the rules:
+   ```bash
+   firebase deploy --only firestore:rules,storage
+   ```
+
+### Important Notes
+
+- Make sure to test these rules in a development environment first
+- The rules include role-based access control for admin, teacher, and parent users
+- Users must be authenticated to access any data
+- Role information should be stored in the user's document in the `users` collection
+
+### Comment System Features
+
+The updated Firestore rules now include comprehensive support for:
+
+- **Assignment Comments**: Users can read all comments, create comments (linked to their user ID), and edit/delete their own comments
+- **Announcement Comments**: Same permissions as assignment comments
+- **Role-based Moderation**: Teachers and admins can delete any comment for moderation purposes
+- **Security**: All comment operations require authentication and proper user validation
+
+### Date Handling
+
+The application now properly handles different date formats:
+
+- **Firestore Timestamps**: Automatically converted using `.toDate()`
+- **Date Objects**: Handled directly
+- **String Dates**: Parsed with fallback error handling
+- **Invalid Dates**: Display friendly error messages instead of "Invalid Date"

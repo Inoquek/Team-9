@@ -2,35 +2,35 @@ import { useState } from "react";
 import { LoginPage } from "@/components/LoginPage";
 import { ParentDashboard } from "@/components/ParentDashboard";
 import { TeacherDashboard } from "@/components/TeacherDashboard";
+import { AdminDashboard } from "@/components/AdminDashboard";
 import { AssignmentPage } from "@/components/AssignmentPage";
 import { AnnouncementPage } from "@/components/AnnouncementPage";
 import { AppSidebar, TopBar } from "@/components/Navigation";
 import { SidebarProvider } from "@/components/ui/sidebar";
+import { useAuth } from "@/contexts/AuthContext";
 
-type UserRole = "parent" | "teacher" | null;
 type CurrentPage = "dashboard" | "assignments" | "announcements";
 
 const Index = () => {
-  const [userRole, setUserRole] = useState<UserRole>(null);
+  const { user, loading } = useAuth();
   const [currentPage, setCurrentPage] = useState<CurrentPage>("dashboard");
-
-  const handleLogin = (role: "parent" | "teacher") => {
-    setUserRole(role);
-    setCurrentPage("dashboard");
-  };
-
-  const handleLogout = () => {
-    setUserRole(null);
-    setCurrentPage("dashboard");
-  };
 
   const handleNavigate = (page: CurrentPage) => {
     setCurrentPage(page);
   };
 
+  // Show loading spinner while checking auth
+  if (loading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+      </div>
+    );
+  }
+
   // Show login page if user is not authenticated
-  if (!userRole) {
-    return <LoginPage onLogin={handleLogin} />;
+  if (!user) {
+    return <LoginPage />;
   }
 
   // Main application layout with sidebar
@@ -38,31 +38,32 @@ const Index = () => {
     <SidebarProvider>
       <div className="min-h-screen flex w-full bg-background">
         <AppSidebar 
-          userRole={userRole}
+          user={user}
           currentPage={currentPage}
           onNavigate={handleNavigate}
-          onLogout={handleLogout}
         />
         
         <div className="flex-1 flex flex-col">
-          <TopBar userRole={userRole} />
+          <TopBar user={user} />
           
           <main className="flex-1 p-6 overflow-auto">
             <div className="max-w-7xl mx-auto">
               {currentPage === "dashboard" && (
-                userRole === "parent" ? (
+                user.role === "parent" ? (
                   <ParentDashboard onNavigate={handleNavigate} />
-                ) : (
+                ) : user.role === "teacher" ? (
                   <TeacherDashboard onNavigate={handleNavigate} />
+                ) : (
+                  <AdminDashboard onNavigate={handleNavigate} />
                 )
               )}
               
               {currentPage === "assignments" && (
-                <AssignmentPage userRole={userRole} />
+                <AssignmentPage userRole={user.role} />
               )}
               
               {currentPage === "announcements" && (
-                <AnnouncementPage userRole={userRole} />
+                <AnnouncementPage userRole={user.role} />
               )}
             </div>
           </main>
