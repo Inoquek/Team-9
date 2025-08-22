@@ -87,15 +87,51 @@ service cloud.firestore {
       allow update, delete: if request.auth != null && 
         (resource.data.userId == request.auth.uid || 
          get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin' ||
+         get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin' ||
          get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'teacher');
     }
     
     // Allow students to submit assignments
     match /submissions/{submissionId} {
-      allow read, write: if request.auth != null && 
-        (resource.data.studentId == request.auth.uid || 
-         resource.data.parentId == request.auth.uid ||
-         get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'teacher');
+      allow read: if request.auth != null && (
+        resource.data.studentId == request.auth.uid || 
+        resource.data.parentId == request.auth.uid ||
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'teacher'
+      );
+      allow create: if request.auth != null && (
+        request.resource.data.studentId == request.auth.uid || 
+        request.resource.data.parentId == request.auth.uid ||
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'teacher'
+      );
+      allow update, delete: if request.auth != null && (
+        resource.data.studentId == request.auth.uid || 
+        resource.data.parentId == request.auth.uid ||
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'teacher'
+      );
+    }
+    
+    // NEW: Allow access to study time collection
+    // Parents can read/write their child's study time data
+    // Teachers can read study time for students in their classes
+    // Admins can read/write all study time data
+    match /studyTime/{studyTimeId} {
+      allow read: if request.auth != null && (
+        // Extract studentId from the document ID (format: studentId_date)
+        // Parents can read their child's study time
+        get(/databases/$(database)/documents/students/$(studyTimeId.split('_')[0])).data.parentId == request.auth.uid ||
+        // Teachers can read study time for students in their classes
+        (get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'teacher' &&
+         get(/databases/$(database)/documents/students/$(studyTimeId.split('_')[0])).data.classId == 
+         get(/databases/$(database)/documents/users/$(request.auth.uid)).data.classId) ||
+        // Admins can read all study time
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin'
+      );
+      allow write: if request.auth != null && (
+        // Parents can write their child's study time
+        get(/databases/$(database)/documents/students/$(studyTimeId.split('_')[0])).data.parentId == request.auth.uid ||
+        // Admins can write all study time
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin'
+      );
     }
     
     // Allow admins to read/write all documents

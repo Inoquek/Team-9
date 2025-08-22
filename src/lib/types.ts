@@ -110,9 +110,11 @@ export interface Submission {
   parentId: string;
   files: SubmissionFile[];
   submittedAt: Date;
-  status: 'pending' | 'approved' | 'needsRevision';
+  status: 'submitted' | 'pending' | 'approved' | 'needsRevision';
   feedback?: Feedback;
   points: number;
+  completionTimeMinutes: number; // Time taken to complete in minutes
+  studyTimeToday: number; // Total study time for the day when submitted
 }
 
 export interface SubmissionFile {
@@ -192,6 +194,23 @@ export interface LeaderboardEntry {
   rank: number;
   lastActivity: Date;
   badges: Badge[];
+}
+
+// Study time tracking types
+export interface StudyTimeEntry {
+  id: string;
+  studentId: string;
+  date: string; // ISO date string (YYYY-MM-DD)
+  totalMinutes: number;
+  assignmentsCompleted: number;
+  lastUpdated: Date;
+}
+
+export interface DailyStudyStats {
+  date: string;
+  totalMinutes: number;
+  assignmentsCompleted: number;
+  averageTimePerAssignment: number;
 }
 
 
