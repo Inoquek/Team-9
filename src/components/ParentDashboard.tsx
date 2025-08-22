@@ -236,9 +236,10 @@ function computeStreak(rows: DayRow[], metric: keyof DayRow, goal: number): Set<
 
 interface ParentDashboardProps {
   onNavigate: (page: "assignments" | "announcements") => void;
+  onBadgeCountsUpdate: (counts: { assignments: number; announcements: number }) => void;
 }
 
-export const ParentDashboard = ({ onNavigate }: ParentDashboardProps) => {
+export const ParentDashboard = ({ onNavigate, onBadgeCountsUpdate }: ParentDashboardProps) => {
   const { user } = useAuth();
   const { toast } = useToast();
   
@@ -345,6 +346,39 @@ export const ParentDashboard = ({ onNavigate }: ParentDashboardProps) => {
   useEffect(() => {
     localStorage.setItem(GOAL_KEY, JSON.stringify(goal));
   }, [goal]);
+
+  // Update badge counts whenever assignments or announcements change
+  useEffect(() => {
+    if (!isLoading) {
+      const activeAssignmentsCount = assignments.filter(a => a.status === "active").length;
+      const newAnnouncementsCount = announcements.filter(a => {
+        try {
+          const cutoff = Date.now() - 48 * 3600 * 1000;
+          let createdAt: Date;
+          
+          if (a.createdAt && typeof a.createdAt === 'object' && 'toDate' in a.createdAt && typeof a.createdAt.toDate === 'function') {
+            createdAt = a.createdAt.toDate();
+          } else if (a.createdAt instanceof Date) {
+            createdAt = a.createdAt;
+          } else if (typeof a.createdAt === 'string') {
+            createdAt = new Date(a.createdAt);
+            if (isNaN(createdAt.getTime())) return false;
+          } else {
+            return false;
+          }
+          
+          return createdAt.getTime() >= cutoff;
+        } catch (error) {
+          return false;
+        }
+      }).length;
+
+      onBadgeCountsUpdate({
+        assignments: activeAssignmentsCount,
+        announcements: newAnnouncementsCount
+      });
+    }
+  }, [assignments, announcements, isLoading, onBadgeCountsUpdate]);
 
   const activeAssignments = useMemo(() => assignments.filter((a) => a.status === "active"), [assignments]);
 
