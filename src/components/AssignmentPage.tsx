@@ -278,17 +278,13 @@ export const AssignmentPage = ({ userRole }: AssignmentPageProps) => {
             {userRole === "parent" ? "Student Assignments" : "Class Assignments"}
           </h1>
           <p className="text-muted-foreground mt-1">
-            {userRole === "parent" 
-              ? "Track your child's learning activities and progress"
-              : "Manage and track all class assignments"
-            }
+            {userRole === "parent" ? "Upload your child's work, view grades, and chat with teachers" : "Manage, review, grade, and message parents"}
           </p>
         </div>
 
         <div className="flex items-center space-x-3">
-          {/* Filter */}
-          <Select value={filterStatus} onValueChange={setFilterStatus}>
-            <SelectTrigger className="w-40">
+          <Select value={filterStatus} onValueChange={(v) => setFilterStatus(v as any)}>
+            <SelectTrigger className="w-44">
               <SelectValue placeholder="Filter by status" />
             </SelectTrigger>
             <SelectContent>
@@ -297,6 +293,57 @@ export const AssignmentPage = ({ userRole }: AssignmentPageProps) => {
               <SelectItem value="archived">Archived</SelectItem>
             </SelectContent>
           </Select>
+
+          {userRole === "teacher" && (
+            <Dialog
+              open={isAssignDialogOpen}
+              onOpenChange={(o) => {
+                setAssignDialogOpen(o);
+                if (!o) setEditingId(null); // reset edit mode when closing
+              }}
+            >
+              <DialogTrigger asChild>
+                <Button onClick={openCreate} className="flex items-center gap-2">
+                  <Plus className="h-4 w-4" />
+                  <span>New Assignment</span>
+                </Button>
+              </DialogTrigger>
+              <DialogContent className="max-w-md">
+                <DialogHeader>
+                  <DialogTitle>{editingId ? "Edit Assignment" : "Create New Assignment"}</DialogTitle>
+                </DialogHeader>
+                <div className="space-y-4">
+                  <div>
+                    <Label htmlFor="assignment-title">Title</Label>
+                    <Input id="assignment-title" value={draft.title ?? ""} onChange={(e) => setDraft((d) => ({ ...d, title: e.target.value }))} />
+                  </div>
+                  <div>
+                    <Label htmlFor="assignment-subject">Subject</Label>
+                    <Select
+                      value={draft.subject ?? ""}
+                      onValueChange={(value) => setDraft((d) => ({ ...d, subject: value as Subject }))}
+                    >
+                      <SelectTrigger><SelectValue placeholder="Select subject" /></SelectTrigger>
+                      <SelectContent>
+                        {SUBJECTS.map((s) => (
+                          <SelectItem key={s} value={s}>{s}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div>
+                    <Label htmlFor="assignment-description">Description</Label>
+                    <Textarea id="assignment-description" value={draft.description ?? ""} onChange={(e) => setDraft((d) => ({ ...d, description: e.target.value }))} rows={3} />
+                  </div>
+                  <div>
+                    <Label htmlFor="due-date">Due Date</Label>
+                    <Input id="due-date" type="date" value={draft.dueDate ?? ""} onChange={(e) => setDraft((d) => ({ ...d, dueDate: e.target.value }))} />
+                  </div>
+                  <Button onClick={upsertAssignment} className="w-full">{editingId ? "Save Changes" : "Create Assignment"}</Button>
+                </div>
+              </DialogContent>
+            </Dialog>
+          )}
         </div>
       </div>
 
@@ -417,9 +464,8 @@ export const AssignmentPage = ({ userRole }: AssignmentPageProps) => {
                     <Clock className="h-4 w-4 text-muted-foreground" />
                     <span>Est. Time: {assignment.estimatedTime} min</span>
                   </div>
-                  <div className="flex items-center space-x-2">
-                    <CheckCircle className="h-4 w-4 text-muted-foreground" />
-                    <span>Points: {assignment.points}</span>
+                  <div className="w-full bg-muted rounded-full h-2 mt-2">
+                    <div className="bg-primary h-2 rounded-full transition-all" style={{ width: `${(a.completedBy / Math.max(1, a.totalStudents)) * 100}%` }} />
                   </div>
                 </div>
 
@@ -459,15 +505,23 @@ export const AssignmentPage = ({ userRole }: AssignmentPageProps) => {
           ))}
         </div>
       ) : (
+              {userRole === "parent" && a.status !== "completed" && (
+                <Button className="w-full sm:w-auto" onClick={() => markComplete(a.id)}>
+                  <CheckCircle className="h-4 w-4 mr-2" /> Mark as Complete
+                </Button>
+              )}
+            </CardContent>
+          </Card>
+        ))}
+      </div>
+
+      {filtered.length === 0 && (
         <Card>
           <CardContent className="p-12 text-center">
             <BookOpen className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
             <h3 className="text-lg font-medium text-foreground mb-2">No assignments found</h3>
             <p className="text-muted-foreground">
-              {filterStatus === "all" 
-                ? "No assignments have been created yet."
-                : `No ${filterStatus} assignments found.`
-              }
+              {filterStatus === "all" ? "No assignments have been created yet." : `No ${filterStatus} assignments found.`}
             </p>
             {userRole === "teacher" && (
               <p className="text-sm text-muted-foreground mt-2">

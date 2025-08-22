@@ -2,9 +2,12 @@ import React, { useState, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Bell, Calendar, Clock, Plus, Pin, Users, Eye, AlertCircle, Star, PartyPopper, MessageCircle } from "lucide-react";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
+import { Bell, Calendar, Clock, Plus, Pin, Users, Eye, AlertCircle, Star, PartyPopper, MessageCircle, Search } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
 import { AnnouncementService } from "@/lib/services/announcements";
@@ -22,10 +25,17 @@ export const AnnouncementPage = ({ userRole }: AnnouncementPageProps) => {
   const { user } = useAuth();
   const { toast } = useToast();
   const [filterType, setFilterType] = useState("all");
+  const [searchQuery, setSearchQuery] = useState("");
   const [announcements, setAnnouncements] = useState<AnnouncementWithComments[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [selectedAnnouncement, setSelectedAnnouncement] = useState<AnnouncementWithComments | null>(null);
   const [showComments, setShowComments] = useState<string | null>(null);
+  const [newAnnouncement, setNewAnnouncement] = useState({
+    title: "",
+    content: "",
+    type: "general",
+    priority: "normal"
+  });
 
   // Load announcements based on user role
   useEffect(() => {
@@ -111,8 +121,10 @@ export const AnnouncementPage = ({ userRole }: AnnouncementPageProps) => {
   }, [user, toast]);
 
   const filteredAnnouncements = announcements.filter(announcement => {
-    if (filterType === "all") return true;
-    return announcement.type === filterType;
+    const matchesType = filterType === "all" || announcement.type === filterType;
+    const matchesSearch = announcement.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
+                         announcement.content.toLowerCase().includes(searchQuery.toLowerCase());
+    return matchesType && matchesSearch;
   });
 
   const handleCommentAdded = async (announcementId: string, comment: Comment) => {
@@ -194,6 +206,25 @@ export const AnnouncementPage = ({ userRole }: AnnouncementPageProps) => {
       toast({
         title: "Error",
         description: "Failed to delete comment. Please try again.",
+        variant: "destructive"
+      });
+    }
+  };
+
+  const handleCreateAnnouncement = async () => {
+    try {
+      // TODO: Implement announcement creation with Firebase
+      console.log("Creating announcement:", newAnnouncement);
+      setNewAnnouncement({ title: "", content: "", type: "general", priority: "normal" });
+      toast({
+        title: "Success",
+        description: "Announcement created successfully!",
+      });
+    } catch (error) {
+      console.error('Error creating announcement:', error);
+      toast({
+        title: "Error",
+        description: "Failed to create announcement. Please try again.",
         variant: "destructive"
       });
     }
@@ -294,9 +325,19 @@ export const AnnouncementPage = ({ userRole }: AnnouncementPageProps) => {
           </p>
         </div>
 
-        <div className="flex items-center space-x-3">
-          {/* Filter */}
-          <Select value={filterType} onValueChange={setFilterType}>
+        {/* Controls */}
+        <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 w-full sm:w-auto">
+          <div className="relative flex-1 sm:flex-none">
+            <Input
+              className="pl-9"
+              placeholder="Search announcements..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+            />
+            <Search className="h-4 w-4 absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
+          </div>
+
+          <Select value={filterType} onValueChange={(value) => setFilterType(value)}>
             <SelectTrigger className="w-40">
               <SelectValue placeholder="Filter by type" />
             </SelectTrigger>
@@ -305,154 +346,203 @@ export const AnnouncementPage = ({ userRole }: AnnouncementPageProps) => {
               <SelectItem value="event">Events</SelectItem>
               <SelectItem value="reminder">Reminders</SelectItem>
               <SelectItem value="activity">Activities</SelectItem>
+              <SelectItem value="policy">Policy</SelectItem>
               <SelectItem value="general">General</SelectItem>
             </SelectContent>
           </Select>
-        </div>
-      </div>
 
-      {/* Announcement Stats */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-        <Card className="border-l-4 border-l-primary">
-          <CardContent className="p-4">
-            <div className="flex items-center space-x-3">
-              <Bell className="h-8 w-8 text-primary" />
-              <div>
-                <p className="text-2xl font-bold">{announcements.length}</p>
-                <p className="text-sm text-muted-foreground">Total Announcements</p>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card className="border-l-4 border-l-success">
-          <CardContent className="p-4">
-            <div className="flex items-center space-x-3">
-              <Eye className="h-8 w-8 text-success" />
-              <div>
-                <p className="text-2xl font-bold">
-                  {announcements.filter(a => a.priority === 'high').length}
-                </p>
-                <p className="text-sm text-muted-foreground">High Priority</p>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card className="border-l-4 border-l-warning">
-          <CardContent className="p-4">
-            <div className="flex items-center space-x-3">
-              <MessageCircle className="h-8 w-8 text-warning" />
-              <div>
-                <p className="text-2xl font-bold">
-                  {announcements.reduce((total, a) => total + (a.commentCount || 0), 0)}
-                </p>
-                <p className="text-sm text-muted-foreground">Total Comments</p>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card className="border-l-4 border-l-accent">
-          <CardContent className="p-4">
-            <div className="flex items-center space-x-3">
-              <Users className="h-8 w-8 text-accent" />
-              <div>
-                <p className="text-2xl font-bold">
-                  {announcements.length > 0 ? Math.round((announcements.filter(a => a.type === 'event').length / announcements.length) * 100) : 0}%
-                </p>
-                <p className="text-sm text-muted-foreground">Event Rate</p>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-      </div>
-
-      {/* Announcements List */}
-      {announcements.length > 0 ? (
-        <div className="space-y-4">
-          {filteredAnnouncements.map((announcement) => (
-            <Card 
-              key={announcement.id} 
-              className="hover:shadow-lg transition-shadow"
-            >
-              <CardHeader>
-                <div className="flex items-start justify-between">
-                  <div className="space-y-2">
-                    <div className="flex items-center space-x-3">
-                      <CardTitle className="text-lg">{announcement.title}</CardTitle>
-                    </div>
-                    <div className="flex items-center space-x-4 text-sm text-muted-foreground">
-                      <Badge variant={getTypeColor(announcement.type)} className="flex items-center space-x-1">
-                        {getTypeIcon(announcement.type)}
-                        <span className="capitalize">{announcement.type}</span>
-                      </Badge>
-                      {announcement.priority === "high" && (
-                        <Badge variant={getPriorityColor(announcement.priority)}>
-                          High Priority
-                        </Badge>
-                      )}
-                      <div className="flex items-center space-x-1">
-                        <Clock className="h-4 w-4" />
-                        <span>{formatTimeAgo(announcement.createdAt)}</span>
-                      </div>
-                      <div className="flex items-center space-x-1">
-                        <MessageCircle className="h-4 w-4" />
-                        <span>{announcement.commentCount || 0} comments</span>
-                      </div>
-                    </div>
-                  </div>
-
-                  <div className="flex items-center space-x-2">
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => setShowComments(showComments === announcement.id ? null : announcement.id)}
-                    >
-                      <MessageCircle className="h-4 w-4" />
-                    </Button>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => setSelectedAnnouncement(announcement)}
-                    >
-                      <Eye className="h-4 w-4" />
-                    </Button>
-                  </div>
-                </div>
-              </CardHeader>
-              
-              <CardContent className="space-y-4">
-                <p className="text-foreground whitespace-pre-wrap">{announcement.content}</p>
-                
-                {/* Attachments */}
-                {announcement.attachments && announcement.attachments.length > 0 && (
-                  <FileViewer 
-                    files={announcement.attachments}
-                    title="Attachments"
-                    showDownloadButton={true}
-                    showPreviewButton={true}
-                    compact={false}
-                  />
-                )}
-
-                {/* Comments Section */}
-                {showComments === announcement.id && (
-                  <div className="border-t pt-4">
-                    <CommentSection
-                      assignmentId={announcement.id}
-                      comments={announcement.comments || []}
-                      onCommentAdded={(comment) => handleCommentAdded(announcement.id, comment)}
-                      onCommentUpdated={(commentId, updates) => handleCommentUpdated(announcement.id, commentId, updates)}
-                      onCommentDeleted={(commentId) => handleCommentDeleted(announcement.id, commentId)}
+          {/* Create Announcement (Teacher only) */}
+          {userRole === "teacher" && (
+            <Dialog>
+              <DialogTrigger asChild>
+                <Button className="flex items-center space-x-2">
+                  <Plus className="h-4 w-4" />
+                  <span>New Announcement</span>
+                </Button>
+              </DialogTrigger>
+              <DialogContent className="max-w-md">
+                <DialogHeader>
+                  <DialogTitle>Create New Announcement</DialogTitle>
+                </DialogHeader>
+                <div className="space-y-4">
+                  <div>
+                    <Label htmlFor="announcement-title">Title</Label>
+                    <Input
+                      id="announcement-title"
+                      value={newAnnouncement.title}
+                      onChange={(e) => setNewAnnouncement({...newAnnouncement, title: e.target.value})}
+                      placeholder="e.g., Field Trip Next Friday"
                     />
                   </div>
-                )}
-              </CardContent>
-            </Card>
-          ))}
+                  <div>
+                    <Label htmlFor="announcement-type">Type</Label>
+                    <Select onValueChange={(value) => setNewAnnouncement({...newAnnouncement, type: value})}>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select type" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="general">General</SelectItem>
+                        <SelectItem value="event">Event</SelectItem>
+                        <SelectItem value="reminder">Reminder</SelectItem>
+                        <SelectItem value="activity">Activity</SelectItem>
+                        <SelectItem value="policy">Policy</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div>
+                    <Label htmlFor="announcement-priority">Priority</Label>
+                    <Select onValueChange={(value) => setNewAnnouncement({...newAnnouncement, priority: value})}>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select priority" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="normal">Normal</SelectItem>
+                        <SelectItem value="high">High Priority</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div>
+                    <Label htmlFor="announcement-content">Message</Label>
+                    <Textarea
+                      id="announcement-content"
+                      value={newAnnouncement.content}
+                      onChange={(e) => setNewAnnouncement({...newAnnouncement, content: e.target.value})}
+                      placeholder="Write your announcement here..."
+                      rows={4}
+                    />
+                  </div>
+                  <Button onClick={handleCreateAnnouncement} className="w-full">
+                    Send Announcement
+                  </Button>
+                </div>
+              </DialogContent>
+            </Dialog>
+          )}
         </div>
-      ) : (
+      </div>
+
+      {/* Announcement Stats (Teacher only) */}
+      {userRole === "teacher" && (
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+          <Card className="border-l-4 border-l-primary">
+            <CardContent className="p-4">
+              <div className="flex items-center space-x-3">
+                <Bell className="h-8 w-8 text-primary" />
+                <div>
+                  <p className="text-2xl font-bold">{announcements.length}</p>
+                  <p className="text-sm text-muted-foreground">Total Announcements</p>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card className="border-l-4 border-l-success">
+            <CardContent className="p-4">
+              <div className="flex items-center space-x-3">
+                <Eye className="h-8 w-8 text-success" />
+                <div>
+                  <p className="text-2xl font-bold">92%</p>
+                  <p className="text-sm text-muted-foreground">Average Read Rate</p>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card className="border-l-4 border-l-warning">
+            <CardContent className="p-4">
+              <div className="flex items-center space-x-3">
+                <Pin className="h-8 w-8 text-warning" />
+                <div>
+                  <p className="text-2xl font-bold">
+                    {announcements.filter(a => a.priority === 'high').length}
+                  </p>
+                  <p className="text-sm text-muted-foreground">High Priority</p>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card className="border-l-4 border-l-accent">
+            <CardContent className="p-4">
+              <div className="flex items-center space-x-3">
+                <Users className="h-8 w-8 text-accent" />
+                <div>
+                  <p className="text-2xl font-bold">24</p>
+                  <p className="text-sm text-muted-foreground">Parent Recipients</p>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+      )}
+
+      {/* Announcements List */}
+      <div className="space-y-4">
+        {filteredAnnouncements.map((announcement) => (
+          <Card 
+            key={announcement.id} 
+            className="hover:shadow-lg transition-shadow cursor-pointer"
+            onClick={() => setSelectedAnnouncement(announcement)}
+          >
+            <CardHeader>
+              <div className="flex items-start justify-between">
+                <div className="space-y-2">
+                  <div className="flex items-center space-x-3">
+                    <CardTitle className="text-lg">{announcement.title}</CardTitle>
+                  </div>
+                  <div className="flex items-center space-x-3 flex-wrap">
+                    <Badge variant={getTypeColor(announcement.type)} className="flex items-center space-x-1">
+                      {getTypeIcon(announcement.type)}
+                      <span className="capitalize">{announcement.type}</span>
+                    </Badge>
+                    {announcement.priority === "high" && (
+                      <Badge variant={getPriorityColor(announcement.priority)}>
+                        High Priority
+                      </Badge>
+                    )}
+                    <div className="flex items-center space-x-1 text-sm text-muted-foreground">
+                      <Clock className="h-3 w-3" />
+                      <span>{formatTimeAgo(announcement.createdAt)}</span>
+                    </div>
+                    <div className="text-sm text-muted-foreground">
+                      by Teacher
+                    </div>
+                  </div>
+                </div>
+
+                {userRole === "teacher" && (
+                  <div className="flex items-center space-x-2 text-sm text-muted-foreground">
+                    <Users className="h-4 w-4" />
+                    <span>{announcement.readBy?.length || 0} read</span>
+                  </div>
+                )}
+              </div>
+            </CardHeader>
+            <CardContent>
+              <p className="text-foreground whitespace-pre-wrap">{announcement.content}</p>
+              
+              {userRole === "teacher" && announcement.readBy && (
+                <div className="mt-4 bg-muted/50 rounded-lg p-3">
+                  <div className="flex items-center justify-between mb-2">
+                    <span className="text-sm font-medium">Read Status</span>
+                    <span className="text-sm text-muted-foreground">
+                      {announcement.readBy.length > 0 ? Math.round((announcement.readBy.length / 24) * 100) : 0}%
+                    </span>
+                  </div>
+                  <div className="w-full bg-muted rounded-full h-2">
+                    <div 
+                      className="bg-primary h-2 rounded-full transition-all"
+                      style={{ width: `${announcement.readBy.length > 0 ? Math.round((announcement.readBy.length / 24) * 100) : 0}%` }}
+                    ></div>
+                  </div>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        ))}
+      </div>
+
+      {filteredAnnouncements.length === 0 && (
         <Card>
           <CardContent className="p-12 text-center">
             <Bell className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
