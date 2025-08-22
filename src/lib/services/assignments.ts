@@ -15,6 +15,38 @@ import {
   import { db } from '../firebase';
   import { Assignment, Submission, Feedback, Comment, AssignmentWithComments } from '../types';
   
+  // Average monthly scores for a student (across subjects)
+  export async function getMonthlyAverageScores(studentId: string) {
+    const q = query(collection(db, "submissions"), where("studentId", "==", studentId));
+    const snap = await getDocs(q);
+
+    const byMonth: Record<string, { sum: number; n: number }> = {};
+    snap.forEach(doc => {
+      const d = doc.data() as any;
+      const created = d.createdAt?.toDate ? d.createdAt.toDate() : new Date(d.createdAt || Date.now());
+      const key = created.toLocaleString("en-US", { month: "short" }); // Jan, Feb, ...
+      if (!byMonth[key]) byMonth[key] = { sum: 0, n: 0 };
+      if (typeof d.score === "number") { byMonth[key].sum += d.score; byMonth[key].n += 1; }
+    });
+
+    const order = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
+    return order
+      .map(m => byMonth[m] ? { month: m, avgScore: Math.round(byMonth[m].sum / byMonth[m].n) } : null)
+      .filter(Boolean) as { month: string; avgScore: number }[];
+  }
+
+  // Submission breakdown for a student (submitted vs missed)
+  export async function getSubmissionStatsForStudent(studentId: string) {
+    const q = query(collection(db, "submissions"), where("studentId", "==", studentId));
+    const snap = await getDocs(q);
+    let submitted = 0, missed = 0;
+    snap.forEach(doc => {
+      const d = doc.data() as any;
+      if (d.status === "missed") missed += 1;
+      else submitted += 1; // treat everything else as submitted/present
+    });
+    return { submitted, missed };
+  }
   export class AssignmentService {
     // Create new assignment
     static async createAssignment(assignment: Omit<Assignment, 'id' | 'createdAt'>): Promise<string> {

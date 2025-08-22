@@ -9,8 +9,9 @@ import { AppSidebar, TopBar } from "@/components/Navigation";
 import { SidebarProvider } from "@/components/ui/sidebar";
 import { useAuth } from "@/contexts/AuthContext";
 import { TeacherClassProvider } from "@/contexts/TeacherClassContext";
+import { Metrics } from "@/components/Metrics";
 
-type CurrentPage = "dashboard" | "assignments" | "announcements";
+type CurrentPage = "dashboard" | "assignments" | "announcements" | "metrics";
 
 const Index = () => {
   const { user, loading } = useAuth();
@@ -78,6 +79,8 @@ const Index = () => {
                 {currentPage === "announcements" && (
                   <AnnouncementPage userRole={user.role} />
                 )}
+
+                {currentPage === "metrics" && <Metrics />}
               </div>
             </main>
           </div>

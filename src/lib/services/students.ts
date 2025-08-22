@@ -14,6 +14,19 @@ import {
 import { db } from '../firebase';
 import { Student } from '../types';
 
+export async function getByParentId(parentId: string) {
+  const q = query(
+    collection(db, "students"),
+    where("parentId", "==", parentId),
+    where("isActive", "==", true)
+  );
+  const snap = await getDocs(q);
+  if (snap.empty) return null;
+  const doc = snap.docs[0];
+  const data = doc.data() as any;
+  return { id: doc.id, name: data.name, classId: data.classId };
+}
+
 export class StudentService {
   // Create new student
   static async createStudent(studentData: Omit<Student, 'id' | 'createdAt'>): Promise<string> {
