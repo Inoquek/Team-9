@@ -45,13 +45,16 @@ async function getStudentAssignmentProgress(
   if (!classId) return { total: 0, completed: 0, totalPoints: 0, earnedPoints: 0 };
 
   try {
-    // Pull this class's active assignments
+    console.log(`Getting progress for student ${studentId} in class ${classId}`);
+    
+    // Pull this class's assignments (include all statuses for accurate progress tracking)
     const qAssign = query(
       collection(db, "assignments"),
-      where("classId", "==", classId),
-      where("status", "==", "active")
+      where("classId", "==", classId)
     );
     const asSnap = await getDocs(qAssign);
+
+    console.log(`Found ${asSnap.docs.length} assignments for class ${classId}`);
 
     let total = 0;
     let completed = 0;
@@ -60,7 +63,10 @@ async function getStudentAssignmentProgress(
 
     for (const assignment of asSnap.docs) {
       total += 1;
-      totalPoints += assignment.data().points || 0;
+      const assignmentPoints = assignment.data().points || 0;
+      totalPoints += assignmentPoints;
+
+      console.log(`Assignment ${assignment.id}: ${assignment.data().title} - ${assignmentPoints} points`);
 
       // Check if student has submitted this assignment
       const submissionQuery = query(
@@ -76,16 +82,47 @@ async function getStudentAssignmentProgress(
         const submission = submissionSnap.docs[0];
         const submissionData = submission.data();
 
-        // Consider approved, submitted, and pending as completed
+        console.log(`Student ${studentId} has submission for assignment ${assignment.id}, status: ${submissionData.status}`);
+        console.log(`Submission data:`, {
+          submissionPoints: submissionData.points,
+          feedbackPoints: submissionData.feedback?.points,
+          status: submissionData.status
+        });
+
+        // Consider approved, submitted, pending, and completed as completed
         if (submissionData.status === 'approved' || 
             submissionData.status === 'submitted' || 
-            submissionData.status === 'pending') {
+            submissionData.status === 'pending' ||
+            submissionData.status === 'completed') {
           completed += 1;
-          earnedPoints += assignment.data().points || 0;
+          
+          // Calculate actual earned points based on submission data
+          let earnedPointsForAssignment = 0;
+          
+          if (submissionData.status === 'approved' && submissionData.feedback && submissionData.feedback.points) {
+            // If approved with feedback, use the feedback points (teacher's assessment)
+            earnedPointsForAssignment = submissionData.feedback.points;
+            console.log(`Assignment ${assignment.id} approved with ${earnedPointsForAssignment} points from feedback`);
+          } else if (submissionData.points && submissionData.points > 0) {
+            // If submission has points assigned, use those
+            earnedPointsForAssignment = submissionData.points;
+            console.log(`Assignment ${assignment.id} has ${earnedPointsForAssignment} points assigned`);
+          } else {
+            // If no points assigned yet, give partial credit for completion (e.g., 50% of max points)
+            earnedPointsForAssignment = Math.round(assignmentPoints * 0.5);
+            console.log(`Assignment ${assignment.id} completed but no points assigned, giving partial credit: ${earnedPointsForAssignment} points`);
+          }
+          
+          earnedPoints += earnedPointsForAssignment;
+          console.log(`Assignment ${assignment.id} marked as completed for student ${studentId}, earned ${earnedPointsForAssignment} points`);
         }
+      } else {
+        console.log(`Student ${studentId} has no submission for assignment ${assignment.id}`);
       }
     }
 
+    console.log(`Final progress for student ${studentId}: ${completed}/${total} assignments, ${earnedPoints}/${totalPoints} points`);
+    console.log(`Points breakdown: ${earnedPoints} earned out of ${totalPoints} possible (${totalPoints > 0 ? Math.round((earnedPoints / totalPoints) * 100) : 0}%)`);
     return { total, completed, totalPoints, earnedPoints };
   } catch (error) {
     console.error('Error getting student assignment progress:', error);
@@ -204,7 +241,9 @@ const GardenGame = () => {
 
       setLoading(true);
       try {
+        console.log(`Loading students for class ${activeClassId}`);
         const rows = await StudentService.getStudentsByClass(activeClassId);
+        console.log(`Loaded ${rows.length} students:`, rows);
         if (!cancelled) setStudents(rows);
       } catch (error) {
         console.error('Error loading students:', error);
@@ -224,14 +263,19 @@ const GardenGame = () => {
 
     async function loadAllProgress() {
       if (students.length === 0) return;
+      console.log(`Loading progress for ${students.length} students`);
+      
       const map: Record<string, { total: number; completed: number; totalPoints: number; earnedPoints: number }> = {};
 
       // Compute per student
       for (const s of students) {
-        const { total, completed, totalPoints, earnedPoints } = await getStudentAssignmentProgress(s.id, (s as any).classId);
+        console.log(`Processing student: ${s.name} (${s.id}) with classId: ${s.classId}`);
+        const { total, completed, totalPoints, earnedPoints } = await getStudentAssignmentProgress(s.id, s.classId);
         map[s.id] = { total, completed, totalPoints, earnedPoints };
+        console.log(`Student ${s.name} progress: ${completed}/${total} assignments, ${earnedPoints}/${totalPoints} points`);
       }
 
+      console.log('Final progress map:', map);
       if (!cancelled) setProgress(map);
     }
 
@@ -308,8 +352,38 @@ const GardenGame = () => {
             </p>
           </CardHeader>
           <CardContent className="space-y-4">
+            
+            
             {students.map((student) => {
               const studentProgress = progress[student.id];
+              console.log(`Rendering student ${student.name}:`, studentProgress);
+              
+              // If no progress data, show a placeholder
+              if (!studentProgress) {
+                return (
+                  <div key={student.id} className="p-4 rounded-lg border-2 border-gray-200 bg-gray-50">
+                    <div className="flex items-center justify-between mb-3">
+                      <div className="flex items-center gap-3">
+                        <div className="w-3 h-3 rounded-full bg-gray-400" />
+                        <h3 className="font-semibold text-gray-800">{student.name}</h3>
+                        <Badge className="bg-gray-100 text-gray-700">
+                          No Progress Data
+                        </Badge>
+                      </div>
+                      <div className="text-right">
+                        <div className="text-2xl font-bold text-gray-400">0%</div>
+                        <div className="text-sm text-muted-foreground">
+                          Loading progress...
+                        </div>
+                      </div>
+                    </div>
+                    <div className="text-sm text-gray-500">
+                      Progress data not available for this student. This might indicate an issue with data loading.
+                    </div>
+                  </div>
+                );
+              }
+              
               const completionRate = studentProgress && studentProgress.totalPoints > 0 
                 ? Math.round((studentProgress.earnedPoints / studentProgress.totalPoints) * 100) 
                 : 0;

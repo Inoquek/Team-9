@@ -79,12 +79,45 @@ import {
       
       // Filter by status and sort in memory (avoids composite index requirement)
       assignments = assignments
-        .filter(assignment => assignment.status === 'active')
+        .filter(assignment => assignment.status === 'active' || assignment.status === 'completed')
         .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
       
       return assignments;
     } catch (error) {
       console.error('Get assignments error:', error);
+      throw error;
+    }
+  }
+
+  // Get assignments for a class specifically for parents (includes all statuses)
+  static async getClassAssignmentsForParents(classId: string): Promise<Assignment[]> {
+    try {
+      // First get all assignments for the class
+      const q = query(
+        collection(db, 'assignments'),
+        where('classId', '==', classId)
+      );
+      
+      const querySnapshot = await getDocs(q);
+      let assignments = querySnapshot.docs.map(doc => ({
+        id: doc.id,
+        ...doc.data()
+      })) as Assignment[];
+      
+      // For parents, show all assignments (active, completed, archived) but sort by status
+      assignments = assignments.sort((a, b) => {
+        // Active assignments first, then completed, then archived
+        const statusOrder: Record<string, number> = { 'active': 0, 'completed': 1, 'archived': 2 };
+        const statusDiff = (statusOrder[a.status] || 0) - (statusOrder[b.status] || 0);
+        if (statusDiff !== 0) return statusDiff;
+        
+        // Then by creation date (newest first)
+        return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
+      });
+      
+      return assignments;
+    } catch (error) {
+      console.error('Get assignments for parents error:', error);
       throw error;
     }
   }
@@ -259,12 +292,11 @@ import {
   
   export class SubmissionService {
     // Submit homework
-    static async submitHomework(submission: Omit<Submission, 'id' | 'submittedAt' | 'status' | 'points'>): Promise<string> {
+    static async submitHomework(submission: Omit<Submission, 'id' | 'submittedAt' | 'points'>): Promise<string> {
       try {
         const docRef = await addDoc(collection(db, 'submissions'), {
           ...submission,
           submittedAt: new Date(),
-          status: 'submitted', // Changed from 'pending' to 'submitted'
           points: 0
         });
         return docRef.id;
@@ -396,7 +428,9 @@ import {
             id: submissionId,
             createdAt: new Date()
           },
-          status: 'approved'
+          status: 'approved',
+          points: feedback.points || 0, // Also update the main points field
+          updatedAt: new Date()
         });
       } catch (error) {
         console.error('Provide feedback error:', error);
@@ -413,6 +447,19 @@ import {
         });
       } catch (error) {
         console.error('Update submission status error:', error);
+        throw error;
+      }
+    }
+
+    // Update submission points
+    static async updateSubmissionPoints(submissionId: string, points: number): Promise<void> {
+      try {
+        await updateDoc(doc(db, 'submissions', submissionId), {
+          points,
+          updatedAt: new Date()
+        });
+      } catch (error) {
+        console.error('Update submission points error:', error);
         throw error;
       }
     }
