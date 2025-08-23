@@ -60,6 +60,7 @@ export const ForumPage = ({ userRole, currentUserName }: ForumPageProps) => {
   const [filterTag, setFilterTag] = useState<"all" | ForumTag>("all");
   const [sortKey, setSortKey] = useState<SortKey>("hot");
   const [loading, setLoading] = useState(true);
+  const [expandedPosts, setExpandedPosts] = useState<Set<string>>(new Set());
 
   // Create/Edit post dialog
   const [isPostDialogOpen, setPostDialogOpen] = useState(false);
@@ -465,29 +466,29 @@ export const ForumPage = ({ userRole, currentUserName }: ForumPageProps) => {
 
         {/* Controls */}
         <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 w-full sm:w-auto">
-          <div className="relative flex-1 sm:flex-none">
+          <div className="flex items-center gap-4">
+            <SearchIcon className="h-4 w-4 text-muted-foreground" />
             <Input
-              className="pl-9"
               placeholder="Search posts..."
               value={query}
               onChange={(e) => setQuery(e.target.value)}
+              className="w-64"
             />
-            <SearchIcon className="h-4 w-4 absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
           </div>
 
-          <Select value={filterTag} onValueChange={(v) => setFilterTag(v as any)}>
-            <SelectTrigger className="w-40">
+          <Select value={filterTag} onValueChange={(v) => setFilterTag(v as "all" | ForumTag)}>
+            <SelectTrigger className="w-32">
               <SelectValue placeholder="Filter by tag" />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="all">All</SelectItem>
+              <SelectItem value="all">All tags</SelectItem>
               {TAGS.map(t => <SelectItem key={t} value={t}>{t[0].toUpperCase() + t.slice(1)}</SelectItem>)}
             </SelectContent>
           </Select>
 
           <Select value={sortKey} onValueChange={(v) => setSortKey(v as SortKey)}>
             <SelectTrigger className="w-32">
-              <SelectValue placeholder="Sort" />
+              <SelectValue placeholder="Sort by" />
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="hot">Hot</SelectItem>
@@ -496,7 +497,23 @@ export const ForumPage = ({ userRole, currentUserName }: ForumPageProps) => {
             </SelectContent>
           </Select>
 
-          {/* New Post */}
+          <div className="flex items-center gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => {
+                if (expandedPosts.size === filtered.length) {
+                  setExpandedPosts(new Set());
+                } else {
+                  setExpandedPosts(new Set(filtered.map(p => p.id)));
+                }
+              }}
+              className="text-xs"
+            >
+              {expandedPosts.size === filtered.length ? "Collapse All" : "Expand All"}
+            </Button>
+          </div>
+
           <Dialog open={isPostDialogOpen} onOpenChange={(o) => { setPostDialogOpen(o); if (!o) setEditingId(null); }}>
             <DialogTrigger asChild>
               <Button onClick={openCreate} className="flex items-center gap-2">
@@ -542,6 +559,7 @@ export const ForumPage = ({ userRole, currentUserName }: ForumPageProps) => {
           {/* Posts */}
           <div className="space-y-4">
             {filtered.map(p => {
+              const isExpanded = expandedPosts.has(p.id);
               return (
                 <Card
                   key={p.id}
@@ -575,6 +593,35 @@ export const ForumPage = ({ userRole, currentUserName }: ForumPageProps) => {
                             <div className="text-sm text-muted-foreground">
                               Posted by <span className="font-medium">{p.authorName}</span> • {fmt(p.createdAt)}
                             </div>
+                            <div className="flex items-center gap-4 text-sm text-muted-foreground">
+                              <span className="flex items-center gap-1">
+                                <MessageCircle className="h-4 w-4" /> {comments[p.id]?.length || 0} comments
+                              </span>
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => {
+                                  const newExpanded = new Set(expandedPosts);
+                                  if (isExpanded) {
+                                    newExpanded.delete(p.id);
+                                  } else {
+                                    newExpanded.add(p.id);
+                                  }
+                                  setExpandedPosts(newExpanded);
+                                }}
+                                className="h-auto p-1 text-xs hover:bg-muted/50"
+                              >
+                                {isExpanded ? (
+                                  <span className="flex items-center gap-1">
+                                    <EyeOff className="h-3 w-3" /> Hide Comments
+                                  </span>
+                                ) : (
+                                  <span className="flex items-center gap-1">
+                                    <MessageCircle className="h-3 w-3" /> Show Comments
+                                  </span>
+                                )}
+                              </Button>
+                            </div>
                           </div>
 
                           {/* actions */}
@@ -600,58 +647,61 @@ export const ForumPage = ({ userRole, currentUserName }: ForumPageProps) => {
                     </div>
                   </CardHeader>
 
-                  <CardContent className="space-y-4">
-                    <div className="whitespace-pre-wrap">{p.body}</div>
+                  {/* Show post body and comments only when expanded */}
+                  {isExpanded && (
+                    <CardContent className="space-y-4">
+                      <div className="whitespace-pre-wrap">{p.body}</div>
 
-                    {/* New top-level comment */}
-                    <div className="flex items-center justify-between">
-                      <div className="text-sm font-medium flex items-center gap-2">
-                        <MessageCircle className="h-4 w-4" /> {comments[p.id]?.length || 0} comments
+                      {/* New top-level comment */}
+                      <div className="flex items-center justify-between">
+                        <div className="text-sm font-medium flex items-center gap-2">
+                          <MessageCircle className="h-4 w-4" /> {comments[p.id]?.length || 0} comments
+                        </div>
+                        <Dialog open={Boolean(replyFor?.postId === p.id && replyFor?.parentId === null)}
+                                onOpenChange={(o) => (!o ? setReplyFor(null) : openReply(p.id, null))}>
+                          <DialogTrigger asChild>
+                            <Button size="sm" variant="outline" onClick={() => openReply(p.id, null)}>
+                              Add Comment
+                            </Button>
+                          </DialogTrigger>
+                          <DialogContent className="max-w-md">
+                            <DialogHeader><DialogTitle>New comment</DialogTitle></DialogHeader>
+                            <div className="space-y-3">
+                              <Textarea rows={4} value={replyText} onChange={(e) => setReplyText(e.target.value)} placeholder="Write your comment..." />
+                              <div className="flex justify-end gap-2">
+                                <Button variant="secondary" onClick={() => setReplyFor(null)}>Cancel</Button>
+                                <Button onClick={saveReply}>Post</Button>
+                              </div>
+                            </div>
+                          </DialogContent>
+                        </Dialog>
                       </div>
-                      <Dialog open={Boolean(replyFor?.postId === p.id && replyFor?.parentId === null)}
-                              onOpenChange={(o) => (!o ? setReplyFor(null) : openReply(p.id, null))}>
-                        <DialogTrigger asChild>
-                          <Button size="sm" variant="outline" onClick={() => openReply(p.id, null)}>
-                            Add Comment
-                          </Button>
-                        </DialogTrigger>
+
+                      {/* Thread */}
+                      {comments[p.id] && comments[p.id].length > 0 ? (
+                        <div className="space-y-3">
+                          {renderCommentsTree(p.id)}
+                        </div>
+                      ) : (
+                        <p className="text-sm text-muted-foreground">No comments yet.</p>
+                      )}
+
+                      {/* Reply dialog for nested replies */}
+                      <Dialog open={Boolean(replyFor?.postId === p.id && replyFor?.parentId)}
+                              onOpenChange={(o) => (!o ? setReplyFor(null) : undefined)}>
                         <DialogContent className="max-w-md">
-                          <DialogHeader><DialogTitle>New comment</DialogTitle></DialogHeader>
+                          <DialogHeader><DialogTitle>Reply</DialogTitle></DialogHeader>
                           <div className="space-y-3">
-                            <Textarea rows={4} value={replyText} onChange={(e) => setReplyText(e.target.value)} placeholder="Write your comment..." />
+                            <Textarea rows={3} value={replyText} onChange={(e) => setReplyText(e.target.value)} placeholder="Write your reply..." />
                             <div className="flex justify-end gap-2">
                               <Button variant="secondary" onClick={() => setReplyFor(null)}>Cancel</Button>
-                              <Button onClick={saveReply}>Post</Button>
+                              <Button onClick={saveReply}><ReplyIcon className="h-4 w-4 mr-1" /> Reply</Button>
                             </div>
                           </div>
                         </DialogContent>
                       </Dialog>
-                    </div>
-
-                    {/* Thread */}
-                    {comments[p.id] && comments[p.id].length > 0 ? (
-                      <div className="space-y-3">
-                        {renderCommentsTree(p.id)}
-                      </div>
-                    ) : (
-                      <p className="text-sm text-muted-foreground">No comments yet.</p>
-                    )}
-
-                    {/* Reply dialog for nested replies */}
-                    <Dialog open={Boolean(replyFor?.postId === p.id && replyFor?.parentId)}
-                            onOpenChange={(o) => (!o ? setReplyFor(null) : undefined)}>
-                      <DialogContent className="max-w-md">
-                        <DialogHeader><DialogTitle>Reply</DialogTitle></DialogHeader>
-                        <div className="space-y-3">
-                          <Textarea rows={3} value={replyText} onChange={(e) => setReplyText(e.target.value)} placeholder="Write your reply..." />
-                          <div className="flex justify-end gap-2">
-                            <Button variant="secondary" onClick={() => setReplyFor(null)}>Cancel</Button>
-                            <Button onClick={saveReply}><ReplyIcon className="h-4 w-4 mr-1" /> Reply</Button>
-                          </div>
-                        </div>
-                      </DialogContent>
-                    </Dialog>
-                  </CardContent>
+                    </CardContent>
+                  )}
                 </Card>
               );
             })}
