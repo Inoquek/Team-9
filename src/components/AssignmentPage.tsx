@@ -203,7 +203,7 @@ export const AssignmentPage = ({ userRole }: AssignmentPageProps) => {
   const [submissions, setSubmissions] = useState<Submission[]>([]);
   
   // New state for enhanced parent functionality
-  const [showStudyDashboard, setShowStudyDashboard] = useState(false);
+  // const [showStudyDashboard, setShowStudyDashboard] = useState(false);
   const [completionTimes, setCompletionTimes] = useState<Record<string, number>>({});
   const [showSubmissionForm, setShowSubmissionForm] = useState<string | null>(null);
   const [studentInfo, setStudentInfo] = useState<{ id: string; name: string } | null>(null);
@@ -1415,15 +1415,7 @@ export const AssignmentPage = ({ userRole }: AssignmentPageProps) => {
         </div>
 
         <div className="flex items-center space-x-3">
-          {userRole === "parent" && (
-            <Button
-              variant="outline"
-              onClick={() => setShowStudyDashboard(!showStudyDashboard)}
-            >
-              <TrendingUp className="h-4 w-4 mr-2" />
-              Study Dashboard
-            </Button>
-          )}
+        
           <Select value={filterStatus} onValueChange={(v) => setFilterStatus(v)}>
             <SelectTrigger className="w-44">
               <SelectValue placeholder="Filter by status" />
@@ -1491,13 +1483,7 @@ export const AssignmentPage = ({ userRole }: AssignmentPageProps) => {
         </div>
       </div>
 
-      {/* Study Time Dashboard for Parents */}
-      {userRole === "parent" && showStudyDashboard && studentInfo && (
-        <StudyTimeDashboard
-          studentId={studentInfo.id}
-          studentName={studentInfo.name}
-        />
-      )}
+      
 
       {/* Stats Cards */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4">

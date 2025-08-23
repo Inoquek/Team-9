@@ -208,29 +208,7 @@ export const ParentGarden = () => {
         </Card>
 
         {/* Assignments Action Card */}
-        <Card className="border-l-4 border-l-indigo-500 bg-gradient-to-r from-indigo-50 to-blue-50">
-          <CardContent className="p-4">
-            <div className="flex items-center gap-3">
-              <BookOpen className="h-7 w-7 text-indigo-600" />
-              <div className="flex-1">
-                <p className="text-sm font-medium text-indigo-800">
-                  Ready to improve rankings?
-                </p>
-                <p className="text-xs text-indigo-600 mt-1">
-                  Complete assignments to earn more points
-                </p>
-              </div>
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => window.location.href = '/assignments'}
-                className="bg-indigo-100 border-indigo-200 text-indigo-700 hover:bg-indigo-200"
-              >
-                Go to Assignments
-              </Button>
-            </div>
-          </CardContent>
-        </Card>
+        
       </div>
 
       {/* My Children Section */}

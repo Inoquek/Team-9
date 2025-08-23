@@ -25,7 +25,7 @@ export class GardenService {
       
       // Get all active assignments for the class
       const assignments = await AssignmentService.getClassAssignments(classId);
-      const activeAssignments = assignments.filter(a => a.status === 'active');
+      const relevantAssignments = assignments.filter(a => a.status === 'active' || a.status === 'completed');
       
       // Calculate completion data for each student
       const studentData: GardenStudentData[] = [];
@@ -70,8 +70,8 @@ export class GardenService {
         teacherId: '', // TODO: Get from class document
         lastUpdated: new Date(),
         totalStudents: students.length,
-        averageCompletionRate: students.length > 0 ? Math.round(totalCompleted / (students.length * activeAssignments.length) * 100) : 0,
-        totalAssignments: activeAssignments.length,
+        averageCompletionRate: students.length > 0 ? Math.round(totalCompleted / (students.length * relevantAssignments.length) * 100) : 0,
+        totalAssignments: relevantAssignments.length,
         completedAssignments: totalCompleted,
         performanceDistribution,
         recentActivity: {
@@ -163,8 +163,11 @@ export class GardenService {
       const ownChildrenData: GardenStudentData[] = [];
       for (const child of children) {
         try {
+          console.log(`GardenService: Getting progress for child ${child.name} (${child.id}) in class ${child.classId}`);
           const { total, completed, totalPoints, earnedPoints } = await this.getStudentAssignmentProgress(child.id, child.classId);
           const completionRate = totalPoints > 0 ? Math.round((earnedPoints / totalPoints) * 100) : 0;
+          
+          console.log(`GardenService: Child ${child.name} progress: ${completed}/${total} assignments, ${earnedPoints}/${totalPoints} points, ${completionRate}% completion rate`);
           
           ownChildrenData.push({
             id: child.id,
@@ -202,13 +205,19 @@ export class GardenService {
       const allKindergartenStudents: GardenStudentData[] = [];
       for (const classId of classIds) {
         try {
+          console.log(`GardenService: Loading students for class ${classId}`);
           const students = await StudentService.getStudentsByClass(classId);
+          console.log(`GardenService: Found ${students.length} students in class ${classId}`);
+          
           for (const student of students) {
             // Check if this is the parent's own child
             const isOwnChild = children.some(child => child.id === student.id);
             
+            console.log(`GardenService: Processing student ${student.name} (${student.id}), isOwnChild: ${isOwnChild}`);
             const { total, completed, totalPoints, earnedPoints } = await this.getStudentAssignmentProgress(student.id, classId);
             const completionRate = totalPoints > 0 ? Math.round((earnedPoints / totalPoints) * 100) : 0;
+            
+            console.log(`GardenService: Student ${student.name} progress: ${completed}/${total} assignments, ${earnedPoints}/${totalPoints} points, ${completionRate}% completion rate`);
             
             allKindergartenStudents.push({
               id: student.id,
@@ -247,7 +256,7 @@ export class GardenService {
       // Get basic class info
       const students = await StudentService.getStudentsByClass(classId);
       const assignments = await AssignmentService.getClassAssignments(classId);
-      const activeAssignments = assignments.filter(a => a.status === 'active');
+      const relevantAssignments = assignments.filter(a => a.status === 'active' || a.status === 'completed');
       
       // Create basic summary
       const initialSummary: Omit<ClassSummary, 'id'> = {
@@ -257,7 +266,7 @@ export class GardenService {
         lastUpdated: new Date(),
         totalStudents: students.length,
         averageCompletionRate: 0, // No assignments completed yet
-        totalAssignments: activeAssignments.length,
+        totalAssignments: relevantAssignments.length,
         completedAssignments: 0,
         performanceDistribution: {
           blooming: 0,
@@ -301,17 +310,23 @@ export class GardenService {
     earnedPoints: number; 
   }> {
     try {
-      // Get active assignments for the class
+      // Get all assignments for the class (not just active ones)
       const assignments = await AssignmentService.getClassAssignments(classId);
-      const activeAssignments = assignments.filter(a => a.status === 'active');
+      // Include active and completed assignments for progress calculation
+      const relevantAssignments = assignments.filter(a => a.status === 'active' || a.status === 'completed');
       
-      let total = activeAssignments.length;
+      console.log(`GardenService: Found ${assignments.length} total assignments, ${relevantAssignments.length} relevant for student ${studentId} in class ${classId}`);
+      
+      let total = relevantAssignments.length;
       let completed = 0;
       let totalPoints = 0;
       let earnedPoints = 0;
       
-      for (const assignment of activeAssignments) {
-        totalPoints += assignment.points || 0;
+      for (const assignment of relevantAssignments) {
+        const assignmentPoints = assignment.points || 0;
+        totalPoints += assignmentPoints;
+        
+        console.log(`GardenService: Processing assignment ${assignment.id} (${assignment.title || 'Untitled'}) - ${assignmentPoints} points, status: ${assignment.status}`);
         
         // Check if student has submitted this assignment
         const submissionQuery = query(
@@ -326,16 +341,41 @@ export class GardenService {
           const submission = submissionSnap.docs[0];
           const submissionData = submission.data();
           
+          console.log(`GardenService: Student ${studentId} has submission for assignment ${assignment.id}, status: ${submissionData.status}`);
+          
+          // Consider approved, submitted, pending, and completed as completed
           if (submissionData.status === 'approved' || 
               submissionData.status === 'submitted' || 
-              submissionData.status === 'pending') {
+              submissionData.status === 'pending' ||
+              submissionData.status === 'completed') {
             completed += 1;
-            // Award points based on assignment value
-            earnedPoints += assignment.points || 0;
+            
+            // Calculate actual earned points based on submission data
+            let earnedPointsForAssignment = 0;
+            
+            if (submissionData.status === 'approved' && submissionData.feedback && submissionData.feedback.points) {
+              // If approved with feedback, use the feedback points (teacher's assessment)
+              earnedPointsForAssignment = submissionData.feedback.points;
+              console.log(`GardenService: Assignment ${assignment.id} approved with ${earnedPointsForAssignment} points from feedback`);
+            } else if (submissionData.points && submissionData.points > 0) {
+              // If submission has points assigned, use those
+              earnedPointsForAssignment = submissionData.points;
+              console.log(`GardenService: Assignment ${assignment.id} has ${earnedPointsForAssignment} points assigned`);
+            } else {
+              // If no points assigned yet, give partial credit for completion (e.g., 50% of max points)
+              earnedPointsForAssignment = Math.round(assignmentPoints * 0.5);
+              console.log(`GardenService: Assignment ${assignment.id} completed but no points assigned, giving partial credit: ${earnedPointsForAssignment} points`);
+            }
+            
+            earnedPoints += earnedPointsForAssignment;
+            console.log(`GardenService: Assignment ${assignment.id} marked as completed for student ${studentId}, earned ${earnedPointsForAssignment} points`);
           }
+        } else {
+          console.log(`GardenService: Student ${studentId} has no submission for assignment ${assignment.id}`);
         }
       }
       
+      console.log(`GardenService: Final progress for student ${studentId}: ${completed}/${total} assignments, ${earnedPoints}/${totalPoints} points`);
       return { total, completed, totalPoints, earnedPoints };
     } catch (error) {
       console.error('Error getting student assignment progress:', error);
