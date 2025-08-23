@@ -1,6 +1,6 @@
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { BookOpen, Home, Bell, LogOut, User, Heart, Star } from "lucide-react";
+import { BookOpen, Home, Bell, LogOut, User, Heart, Star, MessageCircle } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import {
   Sidebar,
@@ -20,8 +20,8 @@ import { User as UserType } from "@/lib/types";
 
 interface AppSidebarProps {
   user: UserType;
-  currentPage: "dashboard" | "assignments" | "announcements";
-  onNavigate: (page: "dashboard" | "assignments" | "announcements") => void;
+  currentPage: "dashboard" | "assignments" | "announcements" | "forum";
+  onNavigate: (page: "dashboard" | "assignments" | "announcements" | "forum") => void;
   badgeCounts?: {
     assignments: number;
     announcements: number;
@@ -51,6 +51,12 @@ export const AppSidebar = ({ user, currentPage, onNavigate, badgeCounts }: AppSi
       page: "announcements" as const, 
       icon: Bell,
       badge: user.role === "parent" && badgeCounts ? badgeCounts.announcements : null,
+    },
+    {
+      title: "Community Forum",
+      page: "forum" as const,
+      icon: MessageCircle,
+      badge: null,
     },
   ];
 

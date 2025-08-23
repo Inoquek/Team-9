@@ -100,8 +100,6 @@ export interface CategoryProgress {
   lastActivity: Date;
 }
 
-
-
 // Submission types
 export interface Submission {
   id: string;
@@ -183,6 +181,39 @@ export interface Announcement {
   attachments?: FileAttachment[];
   createdAt: Date;
   readBy: string[]; // Array of user IDs who read it
+}
+
+// Forum types for parent-teacher discussions
+export interface ForumPost {
+  id: string;
+  title: string;
+  body: string;
+  tag: 'general' | 'question' | 'advice' | 'event' | 'policy';
+  authorRole: 'parent' | 'teacher';
+  authorId: string;
+  authorName: string;
+  classId?: string; // Optional: if post is class-specific
+  isPinned: boolean;
+  upvotes: number;
+  upvotedBy: string[]; // Array of user IDs who upvoted
+  comments: ForumComment[];
+  createdAt: Date;
+  updatedAt?: Date;
+}
+
+export interface ForumComment {
+  id: string;
+  postId: string;
+  parentId: string | null; // For nested replies
+  body: string;
+  authorRole: 'parent' | 'teacher';
+  authorId: string;
+  authorName: string;
+  upvotes: number;
+  upvotedBy: string[]; // Array of user IDs who upvoted
+  hidden: boolean; // Teachers can hide inappropriate comments
+  createdAt: Date;
+  updatedAt?: Date;
 }
 
 // Gamification types

@@ -5,12 +5,13 @@ import { TeacherDashboard } from "@/components/TeacherDashboard";
 import { AdminDashboard } from "@/components/AdminDashboard";
 import { AssignmentPage } from "@/components/AssignmentPage";
 import { AnnouncementPage } from "@/components/AnnouncementPage";
+import { ForumPage } from "@/components/ForumPage";
 import { AppSidebar, TopBar } from "@/components/Navigation";
 import { SidebarProvider } from "@/components/ui/sidebar";
 import { useAuth } from "@/contexts/AuthContext";
 import { TeacherClassProvider } from "@/contexts/TeacherClassContext";
 
-type CurrentPage = "dashboard" | "assignments" | "announcements";
+type CurrentPage = "dashboard" | "assignments" | "announcements" | "forum";
 
 const Index = () => {
   const { user, loading } = useAuth();
@@ -77,6 +78,10 @@ const Index = () => {
                 
                 {currentPage === "announcements" && (
                   <AnnouncementPage userRole={user.role} />
+                )}
+                
+                {currentPage === "forum" && (
+                  <ForumPage userRole={user.role} />
                 )}
               </div>
             </main>
