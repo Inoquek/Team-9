@@ -3,11 +3,12 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { Bell, Calendar, Clock, Plus, Pin, Users, Eye, AlertCircle, Star, PartyPopper, MessageCircle, Search } from "lucide-react";
+import { Bell, Calendar, Clock, Plus, Pin, Users, Eye, AlertCircle, Star, PartyPopper, MessageCircle, Search, Trash2 } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
 import { AnnouncementService } from "@/lib/services/announcements";
@@ -211,6 +212,37 @@ export const AnnouncementPage = ({ userRole }: AnnouncementPageProps) => {
     }
   };
 
+  // Delete announcement function
+  const handleDeleteAnnouncement = async (announcementId: string) => {
+    if (!user || (userRole !== 'teacher' && userRole !== 'admin')) {
+      toast({
+        title: "Error",
+        description: "You don't have permission to delete announcements.",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    try {
+      await AnnouncementService.deleteAnnouncement(announcementId);
+      
+      // Update local state
+      setAnnouncements(prev => prev.filter(announcement => announcement.id !== announcementId));
+      
+      toast({
+        title: "Success",
+        description: "Announcement deleted successfully.",
+      });
+    } catch (error) {
+      console.error('Error deleting announcement:', error);
+      toast({
+        title: "Error",
+        description: "Failed to delete announcement. Please try again.",
+        variant: "destructive"
+      });
+    }
+  };
+
   const handleCreateAnnouncement = async () => {
     try {
       // TODO: Implement announcement creation with Firebase
@@ -351,79 +383,12 @@ export const AnnouncementPage = ({ userRole }: AnnouncementPageProps) => {
             </SelectContent>
           </Select>
 
-          {/* Create Announcement (Teacher only) */}
-          {userRole === "teacher" && (
-            <Dialog>
-              <DialogTrigger asChild>
-                <Button className="flex items-center space-x-2">
-                  <Plus className="h-4 w-4" />
-                  <span>New Announcement</span>
-                </Button>
-              </DialogTrigger>
-              <DialogContent className="max-w-md">
-                <DialogHeader>
-                  <DialogTitle>Create New Announcement</DialogTitle>
-                </DialogHeader>
-                <div className="space-y-4">
-                  <div>
-                    <Label htmlFor="announcement-title">Title</Label>
-                    <Input
-                      id="announcement-title"
-                      value={newAnnouncement.title}
-                      onChange={(e) => setNewAnnouncement({...newAnnouncement, title: e.target.value})}
-                      placeholder="e.g., Field Trip Next Friday"
-                    />
-                  </div>
-                  <div>
-                    <Label htmlFor="announcement-type">Type</Label>
-                    <Select onValueChange={(value) => setNewAnnouncement({...newAnnouncement, type: value})}>
-                      <SelectTrigger>
-                        <SelectValue placeholder="Select type" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="general">General</SelectItem>
-                        <SelectItem value="event">Event</SelectItem>
-                        <SelectItem value="reminder">Reminder</SelectItem>
-                        <SelectItem value="activity">Activity</SelectItem>
-                        <SelectItem value="policy">Policy</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  <div>
-                    <Label htmlFor="announcement-priority">Priority</Label>
-                    <Select onValueChange={(value) => setNewAnnouncement({...newAnnouncement, priority: value})}>
-                      <SelectTrigger>
-                        <SelectValue placeholder="Select priority" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="normal">Normal</SelectItem>
-                        <SelectItem value="high">High Priority</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  <div>
-                    <Label htmlFor="announcement-content">Message</Label>
-                    <Textarea
-                      id="announcement-content"
-                      value={newAnnouncement.content}
-                      onChange={(e) => setNewAnnouncement({...newAnnouncement, content: e.target.value})}
-                      placeholder="Write your announcement here..."
-                      rows={4}
-                    />
-                  </div>
-                  <Button onClick={handleCreateAnnouncement} className="w-full">
-                    Send Announcement
-                  </Button>
-                </div>
-              </DialogContent>
-            </Dialog>
-          )}
         </div>
       </div>
 
       {/* Announcement Stats (Teacher only) */}
       {userRole === "teacher" && (
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           <Card className="border-l-4 border-l-primary">
             <CardContent className="p-4">
               <div className="flex items-center space-x-3">
@@ -436,17 +401,7 @@ export const AnnouncementPage = ({ userRole }: AnnouncementPageProps) => {
             </CardContent>
           </Card>
 
-          <Card className="border-l-4 border-l-success">
-            <CardContent className="p-4">
-              <div className="flex items-center space-x-3">
-                <Eye className="h-8 w-8 text-success" />
-                <div>
-                  <p className="text-2xl font-bold">92%</p>
-                  <p className="text-sm text-muted-foreground">Average Read Rate</p>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
+
 
           <Card className="border-l-4 border-l-warning">
             <CardContent className="p-4">
@@ -510,10 +465,38 @@ export const AnnouncementPage = ({ userRole }: AnnouncementPageProps) => {
                   </div>
                 </div>
 
-                {userRole === "teacher" && (
-                  <div className="flex items-center space-x-2 text-sm text-muted-foreground">
-                    <Users className="h-4 w-4" />
-                    <span>{announcement.readBy?.length || 0} read</span>
+                {/* Action buttons for teachers and admins */}
+                {(userRole === "teacher" || userRole === "admin") && (
+                  <div className="flex items-center space-x-2" onClick={(e) => e.stopPropagation()}>
+                    <AlertDialog>
+                      <AlertDialogTrigger asChild>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="text-destructive hover:text-destructive hover:bg-destructive/10"
+                          title="Delete Announcement"
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
+                      </AlertDialogTrigger>
+                      <AlertDialogContent>
+                        <AlertDialogHeader>
+                          <AlertDialogTitle>Delete Announcement</AlertDialogTitle>
+                          <AlertDialogDescription>
+                            Are you sure you want to delete "{announcement.title}"? This action cannot be undone and will remove all associated comments.
+                          </AlertDialogDescription>
+                        </AlertDialogHeader>
+                        <AlertDialogFooter>
+                          <AlertDialogCancel>Cancel</AlertDialogCancel>
+                          <AlertDialogAction
+                            onClick={() => handleDeleteAnnouncement(announcement.id)}
+                            className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                          >
+                            Delete
+                          </AlertDialogAction>
+                        </AlertDialogFooter>
+                      </AlertDialogContent>
+                    </AlertDialog>
                   </div>
                 )}
               </div>
@@ -521,22 +504,7 @@ export const AnnouncementPage = ({ userRole }: AnnouncementPageProps) => {
             <CardContent>
               <p className="text-foreground whitespace-pre-wrap">{announcement.content}</p>
               
-              {userRole === "teacher" && announcement.readBy && (
-                <div className="mt-4 bg-muted/50 rounded-lg p-3">
-                  <div className="flex items-center justify-between mb-2">
-                    <span className="text-sm font-medium">Read Status</span>
-                    <span className="text-sm text-muted-foreground">
-                      {announcement.readBy.length > 0 ? Math.round((announcement.readBy.length / 24) * 100) : 0}%
-                    </span>
-                  </div>
-                  <div className="w-full bg-muted rounded-full h-2">
-                    <div 
-                      className="bg-primary h-2 rounded-full transition-all"
-                      style={{ width: `${announcement.readBy.length > 0 ? Math.round((announcement.readBy.length / 24) * 100) : 0}%` }}
-                    ></div>
-                  </div>
-                </div>
-              )}
+              {/* Removed read status progress bar */}
             </CardContent>
           </Card>
         ))}

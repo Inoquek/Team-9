@@ -5,6 +5,7 @@ import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Progress } from "@/components/ui/progress";
@@ -213,6 +214,9 @@ export const AssignmentPage = ({ userRole }: AssignmentPageProps) => {
   
   // New state for teacher submission viewing
   const [viewingSubmissionsFor, setViewingSubmissionsFor] = useState<string | null>(null);
+  
+  // New state for delete confirmation
+  const [deleteConfirmOpen, setDeleteConfirmOpen] = useState<string | null>(null);
   
   const fileInputRef = useRef<HTMLInputElement>(null);
   const intervalRef = useRef<NodeJS.Timeout | null>(null);
@@ -1274,6 +1278,38 @@ export const AssignmentPage = ({ userRole }: AssignmentPageProps) => {
     refreshSubmissions();
   };
 
+  // Delete assignment function
+  const handleDeleteAssignment = async (assignmentId: string) => {
+    if (!user || (userRole !== 'teacher' && userRole !== 'admin')) {
+      toast({
+        title: "Error",
+        description: "You don't have permission to delete assignments.",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    try {
+      await AssignmentService.deleteAssignment(assignmentId);
+      
+      // Update local state
+      setAssignments(prev => prev.filter(assignment => assignment.id !== assignmentId));
+      
+      setDeleteConfirmOpen(null);
+      toast({
+        title: "Success",
+        description: "Assignment deleted successfully.",
+      });
+    } catch (error) {
+      console.error('Error deleting assignment:', error);
+      toast({
+        title: "Error",
+        description: "Failed to delete assignment. Please try again.",
+        variant: "destructive"
+      });
+    }
+  };
+
 
 
   const getStatusColor = (status: string) => {
@@ -1430,63 +1466,14 @@ export const AssignmentPage = ({ userRole }: AssignmentPageProps) => {
             </SelectContent>
           </Select>
 
-          {userRole === "teacher" && (
-            <Dialog
-              open={isAssignDialogOpen}
-              onOpenChange={(o) => {
-                setIsAssignDialogOpen(o);
-                if (!o) setEditingId(null); // reset edit mode when closing
-              }}
-            >
-              <DialogTrigger asChild>
-                <Button onClick={openCreate} className="flex items-center gap-2">
-                  <Plus className="h-4 w-4" />
-                  <span>New Assignment</span>
-                </Button>
-              </DialogTrigger>
-              <DialogContent className="max-w-md">
-                <DialogHeader>
-                  <DialogTitle>{editingId ? "Edit Assignment" : "Create New Assignment"}</DialogTitle>
-                </DialogHeader>
-                <div className="space-y-4">
-                  <div>
-                    <Label htmlFor="assignment-title">Title</Label>
-                    <Input id="assignment-title" value={draft.title ?? ""} onChange={(e) => setDraft((d) => ({ ...d, title: e.target.value }))} />
-                  </div>
-                  <div>
-                    <Label htmlFor="assignment-subject">Subject</Label>
-                    <Select
-                      value={draft.subject ?? ""}
-                      onValueChange={(value) => setDraft((d) => ({ ...d, subject: value }))}
-                    >
-                      <SelectTrigger><SelectValue placeholder="Select subject" /></SelectTrigger>
-                      <SelectContent>
-                        {SUBJECTS.map((s) => (
-                          <SelectItem key={s} value={s}>{s}</SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  <div>
-                    <Label htmlFor="assignment-description">Description</Label>
-                    <Textarea id="assignment-description" value={draft.description ?? ""} onChange={(e) => setDraft((d) => ({ ...d, description: e.target.value }))} rows={3} />
-                  </div>
-                  <div>
-                    <Label htmlFor="due-date">Due Date</Label>
-                    <Input id="due-date" type="date" value={draft.dueDate ?? ""} onChange={(e) => setDraft((d) => ({ ...d, dueDate: e.target.value }))} />
-                  </div>
-                  <Button onClick={upsertAssignment} className="w-full">{editingId ? "Save Changes" : "Create Assignment"}</Button>
-                </div>
-              </DialogContent>
-            </Dialog>
-          )}
+          {/* Removed New Assignment button */}
         </div>
       </div>
 
       
 
       {/* Stats Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         <Card className="border-l-4 border-l-primary">
           <CardContent className="p-4">
             <div className="flex items-center space-x-3">
@@ -1532,21 +1519,7 @@ export const AssignmentPage = ({ userRole }: AssignmentPageProps) => {
           </CardContent>
         </Card>
 
-        <Card className="border-l-4 border-l-accent">
-          <CardContent className="p-4">
-            <div className="flex items-center space-x-3">
-              <Users className="h-8 w-8 text-accent" />
-              <div>
-                <p className="text-2xl font-bold">
-                  {assignments.length > 0 ? Math.round((assignments.filter(a => a.status === "active" || (userRole === "parent" && a.status === "completed")).length / assignments.length) * 100) : 0}%
-                </p>
-                <p className="text-sm text-muted-foreground">
-                  {userRole === "parent" ? "Available Rate" : "Active Rate"}
-                </p>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
+        {/* Removed Active Rate card */}
       </div>
 
 
@@ -1609,6 +1582,7 @@ export const AssignmentPage = ({ userRole }: AssignmentPageProps) => {
                       variant="outline"
                       size="sm"
                       onClick={() => setShowComments(showComments === assignment.id ? null : assignment.id)}
+                      title="Comments"
                     >
                       <MessageCircle className="h-4 w-4" />
                     </Button>
@@ -1616,19 +1590,52 @@ export const AssignmentPage = ({ userRole }: AssignmentPageProps) => {
                       variant="outline"
                       size="sm"
                       onClick={() => setSelectedAssignment(assignment)}
+                      title="Preview Assignment"
                     >
                       <Eye className="h-4 w-4" />
                     </Button>
-                    {/* View Submissions button for teachers */}
-                    {userRole === "teacher" && (
+                    {/* View Submissions button for teachers and admins */}
+                    {(userRole === "teacher" || userRole === "admin") && (
                       <Button
                         variant="outline"
                         size="sm"
                         onClick={() => setViewingSubmissionsFor(assignment.id)}
+                        title="View Submissions"
                       >
-                        <FileText className="h-4 w-4 mr-1" />
-                        View Submissions
+                        <FileText className="h-4 w-4" />
                       </Button>
+                    )}
+                    {/* Delete button for teachers and admins */}
+                    {(userRole === "teacher" || userRole === "admin") && (
+                      <AlertDialog>
+                        <AlertDialogTrigger asChild>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            className="text-destructive hover:text-destructive"
+                            title="Delete Assignment"
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                        </AlertDialogTrigger>
+                        <AlertDialogContent>
+                          <AlertDialogHeader>
+                            <AlertDialogTitle>Delete Assignment</AlertDialogTitle>
+                            <AlertDialogDescription>
+                              Are you sure you want to delete "{assignment.title}"? This action cannot be undone and will remove all associated submissions and comments.
+                            </AlertDialogDescription>
+                          </AlertDialogHeader>
+                          <AlertDialogFooter>
+                            <AlertDialogCancel>Cancel</AlertDialogCancel>
+                            <AlertDialogAction
+                              onClick={() => handleDeleteAssignment(assignment.id)}
+                              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                            >
+                              Delete
+                            </AlertDialogAction>
+                          </AlertDialogFooter>
+                        </AlertDialogContent>
+                      </AlertDialog>
                     )}
                   </div>
                 </div>
