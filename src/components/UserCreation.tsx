@@ -100,7 +100,7 @@ export const UserCreation: React.FC<UserCreationProps> = ({ classes, onSuccess }
 
       // If it's a parent user, create the student record
       if (newUser.role === "parent") {
-        await StudentService.createStudent({
+        const studentId = await StudentService.createStudent({
           name: newUser.studentName.trim(),
           parentId: userData.uid,
           classId: newUser.classId,
@@ -108,8 +108,8 @@ export const UserCreation: React.FC<UserCreationProps> = ({ classes, onSuccess }
           isActive: true
         });
 
-        // Add student to class
-        await ClassService.addStudentToClass(userData.uid, newUser.classId);
+        // Add student to class - use the student's ID, not the parent's
+        await ClassService.addStudentToClass(studentId, newUser.classId);
       }
 
       toast({

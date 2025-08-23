@@ -232,7 +232,7 @@ import {
         const docRef = await addDoc(collection(db, 'submissions'), {
           ...submission,
           submittedAt: new Date(),
-          status: 'pending',
+          status: 'submitted', // Changed from 'pending' to 'submitted'
           points: 0
         });
         return docRef.id;
@@ -241,7 +241,7 @@ import {
         throw error;
       }
     }
-  
+
     // Get submissions for an assignment
     static async getAssignmentSubmissions(assignmentId: string): Promise<Submission[]> {
       try {
@@ -261,7 +261,7 @@ import {
         throw error;
       }
     }
-  
+
     // Get student submissions
     static async getStudentSubmissions(studentId: string): Promise<Submission[]> {
       try {
@@ -279,10 +279,82 @@ import {
       } catch (error) {
         console.error('Get student submissions error:', error);
         throw error;
+      }
+    }
+
+    // Get parent submissions (for parents to see their submissions)
+    static async getParentSubmissions(parentId: string): Promise<Submission[]> {
+      try {
+        console.log('getParentSubmissions called with parentId:', parentId);
+        
+        // Try without orderBy first to see if that's the issue
+        const q = query(
+          collection(db, 'submissions'),
+          where('parentId', '==', parentId)
+          // Temporarily removed orderBy to debug
+        );
+        
+        console.log('Query created:', q);
+        
+        const querySnapshot = await getDocs(q);
+        console.log('Query snapshot:', querySnapshot);
+        console.log('Query snapshot empty:', querySnapshot.empty);
+        console.log('Query snapshot size:', querySnapshot.size);
+        
+        if (!querySnapshot.empty) {
+          console.log('Query snapshot docs:', querySnapshot.docs);
+          querySnapshot.docs.forEach((doc, index) => {
+            console.log(`Doc ${index}:`, doc.id, doc.data());
+          });
+        }
+        
+        const results = querySnapshot.docs.map(doc => {
+          const data = doc.data();
+          console.log('Processing doc data:', data);
+          return {
+            id: doc.id,
+            ...data,
+            submittedAt: data.submittedAt?.toDate ? data.submittedAt.toDate() : new Date(data.submittedAt),
+            // Convert other timestamp fields if they exist
+            ...(data.feedback?.createdAt && {
+              feedback: {
+                ...data.feedback,
+                createdAt: data.feedback.createdAt?.toDate ? data.feedback.createdAt.toDate() : new Date(data.feedback.createdAt)
+              }
+            })
+          };
+        }) as Submission[];
+        
+        console.log('Final results:', results);
+        return results;
+      } catch (error) {
+        console.error('Get parent submissions error:', error);
         throw error;
       }
     }
-  
+
+    // Get submissions with study time statistics
+    static async getSubmissionsWithStudyTime(studentId: string, startDate: string, endDate: string): Promise<Submission[]> {
+      try {
+        const q = query(
+          collection(db, 'submissions'),
+          where('studentId', '==', studentId),
+          where('submittedAt', '>=', new Date(startDate)),
+          where('submittedAt', '<=', new Date(endDate)),
+          orderBy('submittedAt', 'desc')
+        );
+        
+        const querySnapshot = await getDocs(q);
+        return querySnapshot.docs.map(doc => ({
+          id: doc.id,
+          ...doc.data()
+        })) as Submission[];
+      } catch (error) {
+        console.error('Get submissions with study time error:', error);
+        throw error;
+      }
+    }
+
     // Provide feedback on submission
     static async provideFeedback(submissionId: string, feedback: Omit<Feedback, 'id' | 'createdAt'>): Promise<void> {
       try {
@@ -296,6 +368,46 @@ import {
         });
       } catch (error) {
         console.error('Provide feedback error:', error);
+        throw error;
+      }
+    }
+
+    // Update submission status
+    static async updateSubmissionStatus(submissionId: string, status: 'pending' | 'approved' | 'needsRevision'): Promise<void> {
+      try {
+        await updateDoc(doc(db, 'submissions', submissionId), {
+          status,
+          updatedAt: new Date()
+        });
+      } catch (error) {
+        console.error('Update submission status error:', error);
+        throw error;
+      }
+    }
+
+    // Get submission statistics for a student
+    static async getSubmissionStats(studentId: string): Promise<{
+      totalSubmissions: number;
+      totalStudyTime: number;
+      averageTimePerSubmission: number;
+      lastSubmissionDate: Date | null;
+    }> {
+      try {
+        const submissions = await this.getStudentSubmissions(studentId);
+        
+        const totalSubmissions = submissions.length;
+        const totalStudyTime = submissions.reduce((sum, sub) => sum + (sub.completionTimeMinutes || 0), 0);
+        const averageTimePerSubmission = totalSubmissions > 0 ? Math.round(totalStudyTime / totalSubmissions) : 0;
+        const lastSubmissionDate = submissions.length > 0 ? submissions[0].submittedAt : null;
+
+        return {
+          totalSubmissions,
+          totalStudyTime,
+          averageTimePerSubmission,
+          lastSubmissionDate
+        };
+      } catch (error) {
+        console.error('Get submission stats error:', error);
         throw error;
       }
     }

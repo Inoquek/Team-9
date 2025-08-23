@@ -11,6 +11,7 @@ import { User } from '@/lib/types';
 import { collection, query, getDocs, where, updateDoc, doc } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { UserEditForm } from './UserEditForm';
+import { ClassService } from '@/lib/services/classes';
 
 interface UserManagementProps {
   classes: any[];
@@ -294,11 +295,22 @@ export const UserManagement: React.FC<UserManagementProps> = ({ onBack, classes 
                       
                       if (!studentsSnapshot.empty) {
                         const studentDoc = studentsSnapshot.docs[0];
+                        const currentStudent = { id: studentDoc.id, ...studentDoc.data() };
+                        const oldClassId = currentStudent.classId;
+                        const newClassId = updatedUser.studentUpdates.classId;
+                        
+                        // Update student record
                         await updateDoc(doc(db, 'students', studentDoc.id), {
                           name: updatedUser.studentUpdates.name,
                           grade: updatedUser.studentUpdates.grade,
                           classId: updatedUser.studentUpdates.classId
                         });
+                        
+                        // Handle class updates if classId changed
+                        if (oldClassId !== newClassId) {
+                          // Use the efficient method to move student between classes
+                          await ClassService.moveStudentBetweenClasses(studentDoc.id, oldClassId, newClassId);
+                        }
                       }
                     } catch (error) {
                       console.error('Error updating student:', error);

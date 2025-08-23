@@ -5,6 +5,7 @@ import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
 import { Plus, Users, BookOpen, Bell, BarChart3, Calendar, CheckCircle, Clock, ChevronRight, X } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
+import { useTeacherClass } from "@/contexts/TeacherClassContext";
 import { collection, query, where, getDocs } from "firebase/firestore";
 import { db } from "@/lib/firebase";
 import { AssignmentCreation } from "./AssignmentCreation";
@@ -27,8 +28,7 @@ interface TeacherClass {
 
 export const TeacherDashboard = ({ onNavigate }: TeacherDashboardProps) => {
   const { user } = useAuth();
-  const [selectedClass, setSelectedClass] = useState<TeacherClass | null>(null);
-  const [teacherClasses, setTeacherClasses] = useState<TeacherClass[]>([]);
+  const { selectedClass, setSelectedClass, teacherClasses, setTeacherClasses } = useTeacherClass();
   const [isLoadingClasses, setIsLoadingClasses] = useState(true);
   
   // View control state
@@ -119,7 +119,7 @@ export const TeacherDashboard = ({ onNavigate }: TeacherDashboardProps) => {
     };
 
     loadTeacherClasses();
-  }, [user?.uid]);
+  }, [user?.uid, selectedClass, setSelectedClass, setTeacherClasses]);
 
   // Load class data when selectedClass changes
   useEffect(() => {
