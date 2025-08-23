@@ -12,44 +12,20 @@ import {
   Search as SearchIcon, EyeOff
 } from "lucide-react";
 import { User } from "@/lib/types";
+import { ForumService, ForumPost, ForumComment, ForumTag } from "@/lib/services/forum";
+import { useAuth } from "@/contexts/AuthContext";
 
 interface ForumPageProps {
-  userRole: User['role']; // 使用你项目中定义的User role类型
+  userRole: User['role'];
   currentUserName?: string;
 }
+
 // ----- types
-type Tag = "general" | "question" | "advice" | "event" | "policy";
 type SortKey = "hot" | "new" | "top";
 
-type Comment = {
-  id: string;
-  parentId: string | null;
-  body: string;
-  authorRole:  User['role'];
-  authorName: string;
-  createdAt: string; // ISO
-  upvotes: number;      // ✅ upvotes only
-  userUpvoted?: boolean; // persisted per-browser demo
-  hidden?: boolean;     // ✅ teacher can hide/unhide
-};
+const TAGS: ForumTag[] = ["general", "question", "advice", "event", "policy"];
 
-type Post = {
-  id: string;
-  title: string;
-  body: string;
-  tag: Tag;
-  authorRole: User['role'];
-  authorName: string;
-  createdAt: string; // ISO
-  isPinned: boolean;
-  upvotes: number;        // ✅ upvotes only
-  userUpvoted?: boolean;  // persisted per-browser demo
-  comments: Comment[];
-};
-
-const STORAGE_KEY = "forum_posts_v1";
-const TAGS: Tag[] = ["general", "question", "advice", "event", "policy"];
-const tagBadge = (t: Tag) => {
+const tagBadge = (t: ForumTag) => {
   switch (t) {
     case "question": return "bg-blue-100 text-blue-700";
     case "advice": return "bg-emerald-100 text-emerald-700";
@@ -60,9 +36,8 @@ const tagBadge = (t: Tag) => {
 };
 
 // ----- helpers
-const nowISO = () => new Date().toISOString();
-const fmt = (iso: string) => {
-  const d = new Date(iso);
+const fmt = (iso: string | Date) => {
+  const d = iso instanceof Date ? iso : new Date(iso);
   const diff = (Date.now() - d.getTime()) / 1000;
   if (diff < 60) return "just now";
   if (diff < 3600) return `${Math.floor(diff / 60)}m ago`;
@@ -71,121 +46,25 @@ const fmt = (iso: string) => {
 };
 
 // Simple "hot" score: upvotes / (hours + 2)^1.5 (pinned still comes first)
-const hotness = (p: Post) => {
-  const hours = Math.max(0, (Date.now() - new Date(p.createdAt).getTime()) / 36e5);
+const hotness = (p: ForumPost) => {
+  const hours = Math.max(0, (Date.now() - p.createdAt.getTime()) / 36e5);
   return (p.upvotes || 0) / Math.pow(hours + 2, 1.5);
 };
 
-// seed data in the new shape
-const seed = (role: User['role'], name?: string): Post[] => [
-  {
-    id: "p1",
-    title: "How do you practice alphabet recognition at home?",
-    body: "Looking for fun, low-prep ideas. What worked for your kids?",
-    tag: "question",
-    authorRole: "parent",
-    authorName: "Parent A",
-    createdAt: new Date(Date.now() - 1000 * 60 * 60 * 3).toISOString(),
-    isPinned: true,
-    upvotes: 5,
-    userUpvoted: false,
-    comments: [
-      {
-        id: "c1",
-        parentId: null,
-        body: "We play a fridge-magnet scavenger hunt. Works great!",
-        authorRole: "parent",
-        authorName: "Parent B",
-        createdAt: nowISO(),
-        upvotes: 3,
-        userUpvoted: false,
-        hidden: false,
-      },
-      {
-        id: "c2",
-        parentId: "c1",
-        body: "Love this idea—thanks for sharing!",
-        authorRole: "teacher",
-        authorName: "Ms. Bee",
-        createdAt: nowISO(),
-        upvotes: 2,
-        userUpvoted: false,
-        hidden: false,
-      },
-    ],
-  },
-  {
-    id: "p2",
-    title: "Reminder: Show & Tell next Friday",
-    body: "Theme is 'My Favorite Book'. Short share, 1–2 minutes per kid.",
-    tag: "event",
-    authorRole: "teacher",
-    authorName: "Ms. Bee",
-    createdAt: new Date(Date.now() - 1000 * 60 * 60 * 24).toISOString(),
-    isPinned: false,
-    upvotes: 2,
-    userUpvoted: false,
-    comments: [],
-  },
-  {
-    id: "p3",
-    title: "Screen-time policy for rainy days?",
-    body: "What's a reasonable guideline for 4–5 year olds on days we're inside a lot?",
-    tag: "policy",
-    authorRole: role,
-    authorName: name || (role === "teacher" ? "Teacher" : "Parent"),
-    createdAt: new Date(Date.now() - 1000 * 60 * 90).toISOString(),
-    isPinned: false,
-    upvotes: 1,
-    userUpvoted: false,
-    comments: [],
-  },
-];
-
-// ---- migration from old score/userVote to upvotes/userUpvoted
-function migrate(raw: any): Post[] {
-  const posts = Array.isArray(raw) ? raw : [];
-  return posts.map((p: any) => {
-    const upvotes = typeof p.upvotes === "number" ? p.upvotes : Math.max(0, Number(p.score) || 0);
-    const userUpvoted = typeof p.userUpvoted === "boolean" ? p.userUpvoted : p.userVote === 1;
-    const comments: Comment[] = (p.comments || []).map((c: any) => ({
-      id: c.id,
-      parentId: c.parentId ?? null,
-      body: c.body ?? "",
-      authorRole: c.authorRole === "teacher" ? "teacher" : c.authorRole === "admin" ? "admin" : "parent",
-      authorName: c.authorName ?? "User",
-      createdAt: c.createdAt ?? nowISO(),
-      upvotes: typeof c.upvotes === "number" ? c.upvotes : Math.max(0, Number(c.score) || 0),
-      userUpvoted: typeof c.userUpvoted === "boolean" ? c.userUpvoted : c.userVote === 1,
-      hidden: Boolean(c.hidden) || false,
-    }));
-    return {
-      id: p.id,
-      title: p.title ?? "",
-      body: p.body ?? "",
-      tag: (p.tag as Tag) ?? "general",
-      authorRole: p.authorRole === "teacher" ? "teacher" : p.authorRole === "admin" ? "admin" : "parent",
-      authorName: p.authorName ?? "User",
-      createdAt: p.createdAt ?? nowISO(),
-      isPinned: Boolean(p.isPinned),
-      upvotes,
-      userUpvoted,
-      comments,
-    } as Post;
-  });
-}
-
 export const ForumPage = ({ userRole, currentUserName }: ForumPageProps) => {
+  const { user } = useAuth();
   const displayName = currentUserName || (userRole === "teacher" ? "Teacher" : userRole === "admin" ? "Admin" : "Parent");
-  const [posts, setPosts] = useState<Post[]>([]);
+  const [posts, setPosts] = useState<ForumPost[]>([]);
+  const [comments, setComments] = useState<{ [postId: string]: ForumComment[] }>({});
   const [query, setQuery] = useState("");
-  const [filterTag, setFilterTag] = useState<"all" | Tag>("all");
+  const [filterTag, setFilterTag] = useState<"all" | ForumTag>("all");
   const [sortKey, setSortKey] = useState<SortKey>("hot");
+  const [loading, setLoading] = useState(true);
 
   // Create/Edit post dialog
   const [isPostDialogOpen, setPostDialogOpen] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
-  const [postDraft, setPostDraft] = useState<Partial<Post>>({
+  const [postDraft, setPostDraft] = useState<Partial<ForumPost>>({
     title: "",
     body: "",
     tag: "general",
@@ -196,13 +75,13 @@ export const ForumPage = ({ userRole, currentUserName }: ForumPageProps) => {
   const [replyText, setReplyText] = useState("");
 
   // 权限检查辅助函数
-  const canDeletePost = (post: Post) => {
+  const canDeletePost = (post: ForumPost) => {
     return userRole === "admin" || 
            userRole === "teacher" || 
            (userRole === post.authorRole && displayName === post.authorName);
   };
 
-  const canDeleteComment = (comment: Comment) => {
+  const canDeleteComment = (comment: ForumComment) => {
     return userRole === "admin" || 
            userRole === "teacher" || 
            (userRole === comment.authorRole && displayName === comment.authorName);
@@ -212,7 +91,7 @@ export const ForumPage = ({ userRole, currentUserName }: ForumPageProps) => {
     return userRole === "admin" || userRole === "teacher";
   };
 
-  const canEditPost = (post: Post) => {
+  const canEditPost = (post: ForumPost) => {
     // 只有作者本人可以编辑帖子（或者管理员也可以编辑）
     return userRole === "admin" || (userRole === post.authorRole && displayName === post.authorName);
   };
@@ -224,19 +103,42 @@ export const ForumPage = ({ userRole, currentUserName }: ForumPageProps) => {
 
   // Load/save
   useEffect(() => {
-    const raw = localStorage.getItem(STORAGE_KEY);
-    if (raw) {
+    const loadPosts = async () => {
       try {
-        const parsed = JSON.parse(raw);
-        setPosts(migrate(parsed));
-        return;
-      } catch { /* ignore */ }
-    }
-    setPosts(seed(userRole, displayName));
-  }, [userRole, displayName]);
+        setLoading(true);
+        const forumPosts = await ForumService.getPosts();
+        setPosts(forumPosts);
+      } catch (error) {
+        console.error('Error loading forum posts:', error);
+      } finally {
+        setLoading(false);
+      }
+    };
 
+    loadPosts();
+  }, []);
+
+  // Load comments for each post
   useEffect(() => {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(posts));
+    const loadCommentsForPosts = async () => {
+      const commentsMap: { [postId: string]: ForumComment[] } = {};
+      
+      for (const post of posts) {
+        try {
+          const postComments = await ForumService.getPostComments(post.id);
+          commentsMap[post.id] = postComments;
+        } catch (error) {
+          console.error(`Error loading comments for post ${post.id}:`, error);
+          commentsMap[post.id] = [];
+        }
+      }
+      
+      setComments(commentsMap);
+    };
+
+    if (posts.length > 0) {
+      loadCommentsForPosts();
+    }
   }, [posts]);
 
   // Derived
@@ -249,11 +151,11 @@ export const ForumPage = ({ userRole, currentUserName }: ForumPageProps) => {
     const sorted = [...visible].sort((a, b) => {
       if (a.isPinned !== b.isPinned) return a.isPinned ? -1 : 1; // pinned first
       if (sortKey === "new") {
-        return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
+        return b.createdAt.getTime() - a.createdAt.getTime();
       }
       if (sortKey === "top") {
         return (b.upvotes || 0) - (a.upvotes || 0) ||
-               new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
+               b.createdAt.getTime() - a.createdAt.getTime();
       }
       return hotness(b) - hotness(a); // hot
     });
@@ -262,27 +164,32 @@ export const ForumPage = ({ userRole, currentUserName }: ForumPageProps) => {
   }, [posts, query, filterTag, sortKey]);
 
   // Voting
-  function togglePostUpvote(id: string) {
-    setPosts(prev =>
-      prev.map(p => {
-        if (p.id !== id) return p;
-        const nextUp = p.userUpvoted ? (p.upvotes || 0) - 1 : (p.upvotes || 0) + 1;
-        return { ...p, upvotes: Math.max(0, nextUp), userUpvoted: !p.userUpvoted };
-      })
-    );
+  async function togglePostUpvote(id: string) {
+    if (!user) return;
+    try {
+      await ForumService.togglePostUpvote(id, user.uid);
+      // Reload posts to get updated vote counts
+      const updatedPosts = await ForumService.getPosts();
+      setPosts(updatedPosts);
+    } catch (error) {
+      console.error('Error toggling post upvote:', error);
+    }
   }
-  function toggleCommentUpvote(postId: string, commentId: string) {
-    setPosts(prev =>
-      prev.map(p => {
-        if (p.id !== postId) return p;
-        const comments = p.comments.map(c => {
-          if (c.id !== commentId) return c;
-          const nextUp = c.userUpvoted ? (c.upvotes || 0) - 1 : (c.upvotes || 0) + 1;
-          return { ...c, upvotes: Math.max(0, nextUp), userUpvoted: !c.userUpvoted };
-        });
-        return { ...p, comments };
-      })
-    );
+
+  async function toggleCommentUpvote(commentId: string) {
+    if (!user) return;
+    try {
+      await ForumService.toggleCommentUpvote(commentId, user.uid);
+      // Reload comments for all posts to get updated vote counts
+      const commentsMap: { [postId: string]: ForumComment[] } = {};
+      for (const post of posts) {
+        const postComments = await ForumService.getPostComments(post.id);
+        commentsMap[post.id] = postComments;
+      }
+      setComments(commentsMap);
+    } catch (error) {
+      console.error('Error toggling comment upvote:', error);
+    }
   }
 
   // Post CRUD
@@ -291,46 +198,50 @@ export const ForumPage = ({ userRole, currentUserName }: ForumPageProps) => {
     setPostDraft({ title: "", body: "", tag: "general" });
     setPostDialogOpen(true);
   }
-  function openEdit(p: Post) {
+  
+  function openEdit(p: ForumPost) {
     setEditingId(p.id);
     setPostDraft({ title: p.title, body: p.body, tag: p.tag });
     setPostDialogOpen(true);
   }
-  function upsertPost() {
-    if (!postDraft.title || !postDraft.body || !postDraft.tag) return;
+  
+  async function upsertPost() {
+    if (!postDraft.title || !postDraft.body || !postDraft.tag || !user) return;
 
-    if (editingId) {
-      setPosts(prev =>
-        prev.map(p =>
-          p.id === editingId
-            ? { ...p, title: postDraft.title!, body: postDraft.body!, tag: postDraft.tag as Tag }
-            : p
-        )
-      );
-    } else {
-      const id = (crypto as any)?.randomUUID?.() ?? Math.random().toString(36).slice(2);
-      const newPost: Post = {
-        id,
-        title: postDraft.title!,
-        body: postDraft.body!,
-        tag: postDraft.tag as Tag,
-        authorRole: userRole,
-        authorName: displayName,
-        createdAt: nowISO(),
-        isPinned: false,
-        upvotes: 0,
-        userUpvoted: false,
-        comments: [],
-      };
-      setPosts(prev => [newPost, ...prev]);
+    try {
+      if (editingId) {
+        // Update existing post
+        await ForumService.updatePost(editingId, {
+          title: postDraft.title!,
+          body: postDraft.body!,
+          tag: postDraft.tag as ForumTag
+        });
+      } else {
+        // Create new post
+        await ForumService.createPost({
+          title: postDraft.title!,
+          body: postDraft.body!,
+          tag: postDraft.tag as ForumTag,
+          authorRole: userRole,
+          authorName: displayName,
+          authorId: user.uid,
+          isPinned: false
+        });
+      }
+      
+      // Reload posts
+      const updatedPosts = await ForumService.getPosts();
+      setPosts(updatedPosts);
+      
+      setEditingId(null);
+      setPostDraft({ title: "", body: "", tag: "general" });
+      setPostDialogOpen(false);
+    } catch (error) {
+      console.error('Error saving post:', error);
     }
-    setEditingId(null);
-    setPostDraft({ title: "", body: "", tag: "general" });
-    setPostDialogOpen(false);
   }
   
-  // 修改删除帖子权限逻辑
-  function removePost(id: string, authorRole: User['role'], authorName: string) {
+  async function removePost(id: string, authorRole: User['role'], authorName: string) {
     // 权限检查：管理员、老师、或作者本人可以删除帖子
     const canDelete = userRole === "admin" || 
                      userRole === "teacher" || 
@@ -338,12 +249,31 @@ export const ForumPage = ({ userRole, currentUserName }: ForumPageProps) => {
     
     if (!canDelete) return;
     if (!confirm("Delete this post?")) return;
-    setPosts(prev => prev.filter(p => p.id !== id));
+    
+    try {
+      await ForumService.deletePost(id);
+      // Reload posts
+      const updatedPosts = await ForumService.getPosts();
+      setPosts(updatedPosts);
+    } catch (error) {
+      console.error('Error deleting post:', error);
+    }
   }
   
-  function togglePin(id: string) {
+  async function togglePin(id: string) {
     if (!canPinPost()) return;
-    setPosts(prev => prev.map(p => (p.id === id ? { ...p, isPinned: !p.isPinned } : p)));
+    
+    try {
+      const post = posts.find(p => p.id === id);
+      if (post) {
+        await ForumService.togglePin(id, !post.isPinned);
+        // Reload posts
+        const updatedPosts = await ForumService.getPosts();
+        setPosts(updatedPosts);
+      }
+    } catch (error) {
+      console.error('Error toggling pin:', error);
+    }
   }
 
   // Comments
@@ -351,72 +281,89 @@ export const ForumPage = ({ userRole, currentUserName }: ForumPageProps) => {
     setReplyFor({ postId, parentId });
     setReplyText("");
   }
-  function saveReply() {
-    if (!replyFor || !replyText.trim()) return;
-    const id = (crypto as any)?.randomUUID?.() ?? Math.random().toString(36).slice(2);
-    const newComment: Comment = {
-      id,
-      parentId: replyFor.parentId,
-      body: replyText.trim(),
-      authorRole: userRole,
-      authorName: displayName,
-      createdAt: nowISO(),
-      upvotes: 0,
-      userUpvoted: false,
-      hidden: false,
-    };
-    setPosts(prev =>
-      prev.map(p => (p.id === replyFor.postId ? { ...p, comments: [...p.comments, newComment] } : p))
-    );
-    setReplyFor(null);
-    setReplyText("");
+  
+  async function saveReply() {
+    if (!replyFor || !replyText.trim() || !user) return;
+    
+    try {
+      await ForumService.addComment(replyFor.postId, {
+        parentId: replyFor.parentId,
+        body: replyText.trim(),
+        authorRole: userRole,
+        authorName: displayName,
+        authorId: user.uid,
+        hidden: false
+      });
+      
+      // Reload comments for this specific post
+      const postComments = await ForumService.getPostComments(replyFor.postId);
+      setComments(prev => ({
+        ...prev,
+        [replyFor.postId]: postComments
+      }));
+      
+      // Also reload posts to get updated comment count
+      const updatedPosts = await ForumService.getPosts();
+      setPosts(updatedPosts);
+      
+      setReplyFor(null);
+      setReplyText("");
+    } catch (error) {
+      console.error('Error saving reply:', error);
+    }
   }
   
-  // 修改删除评论权限逻辑
-  function removeComment(postId: string, comment: Comment) {
-    // 权限检查：管理员、老师、或作者本人可以删除评论
+  async function removeComment(postId: string, comment: ForumComment) {
     const canDelete = userRole === "admin" || 
                      userRole === "teacher" || 
                      (userRole === comment.authorRole && displayName === comment.authorName);
     
     if (!canDelete) return;
     if (!confirm("Delete this comment?")) return;
-    // Remove comment and all its descendants
-    setPosts(prev =>
-      prev.map(p => {
-        if (p.id !== postId) return p;
-        const delSet = new Set<string>([comment.id]);
-        let changed = true;
-        while (changed) {
-          changed = false;
-          p.comments.forEach(c => {
-            if (c.parentId && delSet.has(c.parentId) && !delSet.has(c.id)) {
-              delSet.add(c.id);
-              changed = true;
-            }
-          });
-        }
-        return { ...p, comments: p.comments.filter(c => !delSet.has(c.id)) };
-      })
-    );
+    
+    try {
+      await ForumService.deleteComment(comment.id, postId);
+      
+      // Reload comments for this post
+      const postComments = await ForumService.getPostComments(postId);
+      setComments(prev => ({
+        ...prev,
+        [postId]: postComments
+      }));
+      
+      // Reload posts to get updated comment count
+      const updatedPosts = await ForumService.getPosts();
+      setPosts(updatedPosts);
+    } catch (error) {
+      console.error('Error deleting comment:', error);
+    }
   }
   
-  function toggleCommentHidden(postId: string, commentId: string) {
-    if (!canModerateContent()) return;
-    setPosts(prev =>
-      prev.map(p => {
-        if (p.id !== postId) return p;
-        const comments = p.comments.map(c =>
-          c.id === commentId ? { ...c, hidden: !c.hidden } : c
-        );
-        return { ...p, comments };
-      })
-    );
+  async function toggleCommentHidden(postId: string, commentId: string) {
+    if (!canModerateContent() || !user) return;
+    
+    try {
+      const postComments = comments[postId] || [];
+      const comment = postComments.find(c => c.id === commentId);
+      if (comment) {
+        await ForumService.toggleCommentHidden(commentId, user.uid, !comment.hidden);
+        
+        // Reload comments for this post
+        const updatedComments = await ForumService.getPostComments(postId);
+        setComments(prev => ({
+          ...prev,
+          [postId]: updatedComments
+        }));
+      }
+    } catch (error) {
+      console.error('Error toggling comment hidden:', error);
+    }
   }
 
   // Render comments with hide rules
-  function renderCommentsTree(p: Post, parentId: string | null = null, depth = 0) {
-    const nodes = p.comments.filter(c => c.parentId === parentId);
+  function renderCommentsTree(postId: string, parentId: string | null = null, depth = 0) {
+    const postComments = comments[postId] || [];
+    const nodes = postComments.filter(c => c.parentId === parentId);
     if (!nodes.length) return null;
 
     return (
@@ -424,6 +371,8 @@ export const ForumPage = ({ userRole, currentUserName }: ForumPageProps) => {
         {nodes.map(c => {
           const hidden = c.hidden === true;
           const hiddenForViewer = hidden && !canModerateContent();
+          const hasUserUpvoted = user && c.upvotedBy.includes(user.uid);
+          
           return (
             <li key={c.id} className="flex items-start gap-3">
               {/* votes (up only) */}
@@ -432,11 +381,11 @@ export const ForumPage = ({ userRole, currentUserName }: ForumPageProps) => {
                   variant="ghost"
                   size="icon"
                   className="h-7 w-7"
-                  onClick={() => !hiddenForViewer && toggleCommentUpvote(p.id, c.id)}
+                  onClick={() => !hiddenForViewer && toggleCommentUpvote(c.id)}
                   title="Upvote"
                   disabled={hiddenForViewer}
                 >
-                  <ArrowBigUp className={`h-4 w-4 ${c.userUpvoted ? "text-emerald-600" : ""}`} />
+                  <ArrowBigUp className={`h-4 w-4 ${hasUserUpvoted ? "text-emerald-600" : ""}`} />
                 </Button>
                 <div className="text-sm">{c.upvotes ?? 0}</div>
               </div>
@@ -465,7 +414,7 @@ export const ForumPage = ({ userRole, currentUserName }: ForumPageProps) => {
                       variant="ghost"
                       size="sm"
                       className="h-7 px-2 text-xs"
-                      onClick={() => openReply(p.id, c.id)}
+                      onClick={() => openReply(postId, c.id)}
                     >
                       <ReplyIcon className="h-3.5 w-3.5 mr-1" /> Reply
                     </Button>
@@ -476,7 +425,7 @@ export const ForumPage = ({ userRole, currentUserName }: ForumPageProps) => {
                       variant="ghost"
                       size="sm"
                       className="h-7 px-2 text-xs text-red-600"
-                      onClick={() => removeComment(p.id, c)}
+                      onClick={() => removeComment(postId, c)}
                     >
                       <Trash2 className="h-3.5 w-3.5 mr-1" /> Delete
                     </Button>
@@ -487,7 +436,7 @@ export const ForumPage = ({ userRole, currentUserName }: ForumPageProps) => {
                       variant="outline"
                       size="sm"
                       className="h-7 px-2 text-xs"
-                      onClick={() => toggleCommentHidden(p.id, c.id)}
+                      onClick={() => toggleCommentHidden(postId, c.id)}
                     >
                       <EyeOff className="h-3.5 w-3.5 mr-1" />
                       {hidden ? "Unhide" : "Hide"}
@@ -496,7 +445,7 @@ export const ForumPage = ({ userRole, currentUserName }: ForumPageProps) => {
                 </div>
 
                 {/* children: if hidden for this viewer, don't render subtree */}
-                {!hiddenForViewer && renderCommentsTree(p, c.id, depth + 1)}
+                {!hiddenForViewer && renderCommentsTree(postId, c.id, depth + 1)}
               </div>
             </li>
           );
@@ -565,7 +514,7 @@ export const ForumPage = ({ userRole, currentUserName }: ForumPageProps) => {
                 </div>
                 <div>
                   <Label htmlFor="post-tag">Tag</Label>
-                  <Select value={(postDraft.tag as Tag) ?? "general"} onValueChange={(v) => setPostDraft(d => ({ ...d, tag: v as Tag }))}>
+                  <Select value={(postDraft.tag as ForumTag) ?? "general"} onValueChange={(v) => setPostDraft(d => ({ ...d, tag: v as ForumTag }))}>
                     <SelectTrigger><SelectValue placeholder="Select tag" /></SelectTrigger>
                     <SelectContent>
                       {TAGS.map(t => <SelectItem key={t} value={t}>{t[0].toUpperCase() + t.slice(1)}</SelectItem>)}
@@ -583,132 +532,141 @@ export const ForumPage = ({ userRole, currentUserName }: ForumPageProps) => {
         </div>
       </div>
 
-      {/* Posts */}
-      <div className="space-y-4">
-        {filtered.map(p => {
-          return (
-            <Card
-              key={p.id}
-              className={`hover:shadow-lg transition-shadow ${p.isPinned ? "border-l-4 border-l-amber-500" : ""}`}
-            >
-              <CardHeader>
-                <div className="flex items-start gap-4">
-                  {/* vote column (up only) */}
-                  <div className="flex flex-col items-center">
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      className="h-8 w-8"
-                      onClick={() => togglePostUpvote(p.id)}
-                      title="Upvote"
-                    >
-                      <ArrowBigUp className={`h-5 w-5 ${p.userUpvoted ? "text-emerald-600" : ""}`} />
-                    </Button>
-                    <div className="text-sm">{p.upvotes ?? 0}</div>
-                  </div>
-
-                  {/* content */}
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-start justify-between gap-3">
-                      <div className="space-y-2">
-                        <div className="flex items-center gap-2">
-                          {p.isPinned && <Pin className="h-4 w-4 text-amber-600" />}
-                          <CardTitle className="text-lg">{p.title}</CardTitle>
-                          <Badge className={tagBadge(p.tag)}>{p.tag}</Badge>
-                        </div>
-                        <div className="text-sm text-muted-foreground">
-                          Posted by <span className="font-medium">{p.authorName}</span> • {fmt(p.createdAt)}
-                        </div>
+      {/* Loading */}
+      {loading ? (
+        <div className="flex justify-center items-center py-12">
+          <div className="text-muted-foreground">Loading forum posts...</div>
+        </div>
+      ) : (
+        <>
+          {/* Posts */}
+          <div className="space-y-4">
+            {filtered.map(p => {
+              return (
+                <Card
+                  key={p.id}
+                  className={`hover:shadow-lg transition-shadow ${p.isPinned ? "border-l-4 border-l-amber-500" : ""}`}
+                >
+                  <CardHeader>
+                    <div className="flex items-start gap-4">
+                      {/* vote column (up only) */}
+                      <div className="flex flex-col items-center">
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-8 w-8"
+                          onClick={() => togglePostUpvote(p.id)}
+                          title="Upvote"
+                        >
+                          <ArrowBigUp className={`h-5 w-5 ${user && p.upvotedBy.includes(user.uid) ? "text-emerald-600" : ""}`} />
+                        </Button>
+                        <div className="text-sm">{p.upvotes ?? 0}</div>
                       </div>
 
-                      {/* actions */}
-                      <div className="flex items-center gap-2 shrink-0">
-                        {canPinPost() && (
-                          <Button size="sm" variant="outline" title={p.isPinned ? "Unpin" : "Pin"} onClick={() => togglePin(p.id)}>
-                            <Pin className="h-4 w-4" />
-                          </Button>
-                        )}
-                        {canEditPost(p) && (
-                          <Button size="sm" variant="outline" title="Edit" onClick={() => openEdit(p)}>
-                            <Edit className="h-4 w-4" />
-                          </Button>
-                        )}
-                        {canDeletePost(p) && (
-                          <Button size="sm" variant="outline" title="Delete" onClick={() => removePost(p.id, p.authorRole, p.authorName)}>
-                            <Trash2 className="h-4 w-4" />
-                          </Button>
-                        )}
+                      {/* content */}
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-start justify-between gap-3">
+                          <div className="space-y-2">
+                            <div className="flex items-center gap-2">
+                              {p.isPinned && <Pin className="h-4 w-4 text-amber-600" />}
+                              <CardTitle className="text-lg">{p.title}</CardTitle>
+                              <Badge className={tagBadge(p.tag)}>{p.tag}</Badge>
+                            </div>
+                            <div className="text-sm text-muted-foreground">
+                              Posted by <span className="font-medium">{p.authorName}</span> • {fmt(p.createdAt)}
+                            </div>
+                          </div>
+
+                          {/* actions */}
+                          <div className="flex items-center gap-2 shrink-0">
+                            {canPinPost() && (
+                              <Button size="sm" variant="outline" title={p.isPinned ? "Unpin" : "Pin"} onClick={() => togglePin(p.id)}>
+                                <Pin className="h-4 w-4" />
+                              </Button>
+                            )}
+                            {canEditPost(p) && (
+                              <Button size="sm" variant="outline" title="Edit" onClick={() => openEdit(p)}>
+                                <Edit className="h-4 w-4" />
+                              </Button>
+                            )}
+                            {canDeletePost(p) && (
+                              <Button size="sm" variant="outline" title="Delete" onClick={() => removePost(p.id, p.authorRole, p.authorName)}>
+                                <Trash2 className="h-4 w-4" />
+                              </Button>
+                            )}
+                          </div>
+                        </div>
                       </div>
                     </div>
-                  </div>
-                </div>
-              </CardHeader>
+                  </CardHeader>
 
-              <CardContent className="space-y-4">
-                <div className="whitespace-pre-wrap">{p.body}</div>
+                  <CardContent className="space-y-4">
+                    <div className="whitespace-pre-wrap">{p.body}</div>
 
-                {/* New top-level comment */}
-                <div className="flex items-center justify-between">
-                  <div className="text-sm font-medium flex items-center gap-2">
-                    <MessageCircle className="h-4 w-4" /> {p.comments.length} comments
-                  </div>
-                  <Dialog open={Boolean(replyFor?.postId === p.id && replyFor?.parentId === null)}
-                          onOpenChange={(o) => (!o ? setReplyFor(null) : openReply(p.id, null))}>
-                    <DialogTrigger asChild>
-                      <Button size="sm" variant="outline" onClick={() => openReply(p.id, null)}>
-                        Add Comment
-                      </Button>
-                    </DialogTrigger>
-                    <DialogContent className="max-w-md">
-                      <DialogHeader><DialogTitle>New comment</DialogTitle></DialogHeader>
+                    {/* New top-level comment */}
+                    <div className="flex items-center justify-between">
+                      <div className="text-sm font-medium flex items-center gap-2">
+                        <MessageCircle className="h-4 w-4" /> {comments[p.id]?.length || 0} comments
+                      </div>
+                      <Dialog open={Boolean(replyFor?.postId === p.id && replyFor?.parentId === null)}
+                              onOpenChange={(o) => (!o ? setReplyFor(null) : openReply(p.id, null))}>
+                        <DialogTrigger asChild>
+                          <Button size="sm" variant="outline" onClick={() => openReply(p.id, null)}>
+                            Add Comment
+                          </Button>
+                        </DialogTrigger>
+                        <DialogContent className="max-w-md">
+                          <DialogHeader><DialogTitle>New comment</DialogTitle></DialogHeader>
+                          <div className="space-y-3">
+                            <Textarea rows={4} value={replyText} onChange={(e) => setReplyText(e.target.value)} placeholder="Write your comment..." />
+                            <div className="flex justify-end gap-2">
+                              <Button variant="secondary" onClick={() => setReplyFor(null)}>Cancel</Button>
+                              <Button onClick={saveReply}>Post</Button>
+                            </div>
+                          </div>
+                        </DialogContent>
+                      </Dialog>
+                    </div>
+
+                    {/* Thread */}
+                    {comments[p.id] && comments[p.id].length > 0 ? (
                       <div className="space-y-3">
-                        <Textarea rows={4} value={replyText} onChange={(e) => setReplyText(e.target.value)} placeholder="Write your comment..." />
-                        <div className="flex justify-end gap-2">
-                          <Button variant="secondary" onClick={() => setReplyFor(null)}>Cancel</Button>
-                          <Button onClick={saveReply}>Post</Button>
+                        {renderCommentsTree(p.id)}
+                      </div>
+                    ) : (
+                      <p className="text-sm text-muted-foreground">No comments yet.</p>
+                    )}
+
+                    {/* Reply dialog for nested replies */}
+                    <Dialog open={Boolean(replyFor?.postId === p.id && replyFor?.parentId)}
+                            onOpenChange={(o) => (!o ? setReplyFor(null) : undefined)}>
+                      <DialogContent className="max-w-md">
+                        <DialogHeader><DialogTitle>Reply</DialogTitle></DialogHeader>
+                        <div className="space-y-3">
+                          <Textarea rows={3} value={replyText} onChange={(e) => setReplyText(e.target.value)} placeholder="Write your reply..." />
+                          <div className="flex justify-end gap-2">
+                            <Button variant="secondary" onClick={() => setReplyFor(null)}>Cancel</Button>
+                            <Button onClick={saveReply}><ReplyIcon className="h-4 w-4 mr-1" /> Reply</Button>
+                          </div>
                         </div>
-                      </div>
-                    </DialogContent>
-                  </Dialog>
-                </div>
+                      </DialogContent>
+                    </Dialog>
+                  </CardContent>
+                </Card>
+              );
+            })}
+          </div>
 
-                {/* Thread */}
-                {p.comments.length > 0 ? (
-                  <div className="space-y-3">
-                    {renderCommentsTree(p)}
-                  </div>
-                ) : (
-                  <p className="text-sm text-muted-foreground">No comments yet.</p>
-                )}
-
-                {/* Reply dialog for nested replies */}
-                <Dialog open={Boolean(replyFor?.postId === p.id && replyFor?.parentId)}
-                        onOpenChange={(o) => (!o ? setReplyFor(null) : undefined)}>
-                  <DialogContent className="max-w-md">
-                    <DialogHeader><DialogTitle>Reply</DialogTitle></DialogHeader>
-                    <div className="space-y-3">
-                      <Textarea rows={3} value={replyText} onChange={(e) => setReplyText(e.target.value)} placeholder="Write your reply..." />
-                      <div className="flex justify-end gap-2">
-                        <Button variant="secondary" onClick={() => setReplyFor(null)}>Cancel</Button>
-                        <Button onClick={saveReply}><ReplyIcon className="h-4 w-4 mr-1" /> Reply</Button>
-                      </div>
-                    </div>
-                  </DialogContent>
-                </Dialog>
+          {filtered.length === 0 && (
+            <Card>
+              <CardContent className="p-12 text-center">
+                <MessageCircle className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
+                <h3 className="text-lg font-medium text-foreground mb-2">No posts yet</h3>
+                <p className="text-muted-foreground">Be the first to start a discussion.</p>
               </CardContent>
             </Card>
-          );
-        })}
-      </div>
-
-      {filtered.length === 0 && (
-        <Card>
-          <CardContent className="p-12 text-center">
-            <MessageCircle className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
-            <h3 className="text-lg font-medium text-foreground mb-2">No posts yet</h3>
-            <p className="text-muted-foreground">Be the first to start a discussion.</p>
-          </CardContent>
-        </Card>
+          )}
+        </>
       )}
     </div>
   );
