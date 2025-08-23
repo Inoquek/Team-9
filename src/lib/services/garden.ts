@@ -34,8 +34,8 @@ export class GardenService {
       let newSubmissions = 0;
       
       for (const student of students) {
-        const { total, completed } = await this.getStudentAssignmentProgress(student.id, classId);
-        const completionRate = total > 0 ? Math.round((completed / total) * 100) : 0;
+        const { total, completed, totalPoints, earnedPoints } = await this.getStudentAssignmentProgress(student.id, classId);
+        const completionRate = totalPoints > 0 ? Math.round((earnedPoints / totalPoints) * 100) : 0;
         
         studentData.push({
           id: student.id,
@@ -44,6 +44,8 @@ export class GardenService {
           stage: this.getStageFromPercentage(completionRate),
           totalAssignments: total,
           completedAssignments: completed,
+          totalPoints: totalPoints,
+          earnedPoints: earnedPoints,
           lastActivity: new Date(), // TODO: Get actual last activity
         });
         
@@ -118,6 +120,7 @@ export class GardenService {
   static async getGardenDataForParent(parentId: string): Promise<{
     classSummaries: ClassSummary[];
     ownChildrenData: GardenStudentData[];
+    allKindergartenStudents: GardenStudentData[];
   }> {
     try {
       console.log('Getting garden data for parent:', parentId);
@@ -128,7 +131,7 @@ export class GardenService {
       
       if (children.length === 0) {
         console.log('No children found for parent');
-        return { classSummaries: [], ownChildrenData: [] };
+        return { classSummaries: [], ownChildrenData: [], allKindergartenStudents: [] };
       }
       
       const classIds = Array.from(new Set(children.map(c => c.classId).filter(Boolean)));
@@ -160,8 +163,8 @@ export class GardenService {
       const ownChildrenData: GardenStudentData[] = [];
       for (const child of children) {
         try {
-          const { total, completed } = await this.getStudentAssignmentProgress(child.id, child.classId);
-          const completionRate = total > 0 ? Math.round((completed / total) * 100) : 0;
+          const { total, completed, totalPoints, earnedPoints } = await this.getStudentAssignmentProgress(child.id, child.classId);
+          const completionRate = totalPoints > 0 ? Math.round((earnedPoints / totalPoints) * 100) : 0;
           
           ownChildrenData.push({
             id: child.id,
@@ -170,6 +173,8 @@ export class GardenService {
             stage: this.getStageFromPercentage(completionRate),
             totalAssignments: total,
             completedAssignments: completed,
+            totalPoints: totalPoints,
+            earnedPoints: earnedPoints,
             lastActivity: new Date(),
             isOwnChild: true,
           });
@@ -185,18 +190,54 @@ export class GardenService {
             stage: 'seed',
             totalAssignments: 0,
             completedAssignments: 0,
+            totalPoints: 0,
+            earnedPoints: 0,
             lastActivity: new Date(),
             isOwnChild: true,
           });
         }
       }
       
-      console.log('Final result:', { classSummaries: classSummaries.length, ownChildrenData: ownChildrenData.length });
-      return { classSummaries, ownChildrenData };
+      // Get all students in the kindergarten (all classes) for the whole garden view
+      const allKindergartenStudents: GardenStudentData[] = [];
+      for (const classId of classIds) {
+        try {
+          const students = await StudentService.getStudentsByClass(classId);
+          for (const student of students) {
+            // Check if this is the parent's own child
+            const isOwnChild = children.some(child => child.id === student.id);
+            
+            const { total, completed, totalPoints, earnedPoints } = await this.getStudentAssignmentProgress(student.id, classId);
+            const completionRate = totalPoints > 0 ? Math.round((earnedPoints / totalPoints) * 100) : 0;
+            
+            allKindergartenStudents.push({
+              id: student.id,
+              name: isOwnChild ? student.name : `Student ${student.id.slice(-4)}`, // Anonymize other students
+              completionRate,
+              stage: this.getStageFromPercentage(completionRate),
+              totalAssignments: total,
+              completedAssignments: completed,
+              totalPoints: totalPoints,
+              earnedPoints: earnedPoints,
+              lastActivity: new Date(),
+              isOwnChild,
+            });
+          }
+        } catch (error) {
+          console.warn('Error getting students for class', classId, ':', error);
+        }
+      }
+      
+      console.log('Final result:', { 
+        classSummaries: classSummaries.length, 
+        ownChildrenData: ownChildrenData.length,
+        allKindergartenStudents: allKindergartenStudents.length
+      });
+      return { classSummaries, ownChildrenData, allKindergartenStudents };
     } catch (error) {
       console.error('Error getting garden data for parent:', error);
       // Return empty data instead of throwing
-      return { classSummaries: [], ownChildrenData: [] };
+      return { classSummaries: [], ownChildrenData: [], allKindergartenStudents: [] };
     }
   }
   
@@ -253,7 +294,12 @@ export class GardenService {
   }
   
   // Helper function to get student assignment progress
-  private static async getStudentAssignmentProgress(studentId: string, classId: string): Promise<{ total: number; completed: number }> {
+  private static async getStudentAssignmentProgress(studentId: string, classId: string): Promise<{ 
+    total: number; 
+    completed: number; 
+    totalPoints: number; 
+    earnedPoints: number; 
+  }> {
     try {
       // Get active assignments for the class
       const assignments = await AssignmentService.getClassAssignments(classId);
@@ -261,13 +307,17 @@ export class GardenService {
       
       let total = activeAssignments.length;
       let completed = 0;
+      let totalPoints = 0;
+      let earnedPoints = 0;
       
       for (const assignment of activeAssignments) {
+        totalPoints += assignment.points || 0;
+        
         // Check if student has submitted this assignment
         const submissionQuery = query(
           collection(db, 'submissions'),
-          where('assignmentId', '==', assignment.id),
-          where('studentId', '==', studentId)
+          where("assignmentId", "==", assignment.id),
+          where("studentId", "==", studentId)
         );
         
         const submissionSnap = await getDocs(submissionQuery);
@@ -280,14 +330,16 @@ export class GardenService {
               submissionData.status === 'submitted' || 
               submissionData.status === 'pending') {
             completed += 1;
+            // Award points based on assignment value
+            earnedPoints += assignment.points || 0;
           }
         }
       }
       
-      return { total, completed };
+      return { total, completed, totalPoints, earnedPoints };
     } catch (error) {
       console.error('Error getting student assignment progress:', error);
-      return { total: 0, completed: 0 };
+      return { total: 0, completed: 0, totalPoints: 0, earnedPoints: 0 };
     }
   }
 }

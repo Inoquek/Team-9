@@ -129,6 +129,8 @@ export interface GardenStudentData {
   stage: 'seed' | 'seedling' | 'sprout' | 'blooming';
   totalAssignments: number;
   completedAssignments: number;
+  totalPoints: number;
+  earnedPoints: number;
   lastActivity: Date;
   isOwnChild?: boolean; // For parent view
 }

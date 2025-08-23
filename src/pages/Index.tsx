@@ -5,7 +5,7 @@ import { TeacherDashboard } from "@/components/TeacherDashboard";
 import { AdminDashboard } from "@/components/AdminDashboard";
 import { AssignmentPage } from "@/components/AssignmentPage";
 import { AnnouncementPage } from "@/components/AnnouncementPage";
-import { GardenGame } from "@/components/GardenGame";
+import GardenGame from "@/components/GardenGame";
 import { ParentGarden } from "@/components/ParentGarden";
 import { AppSidebar, TopBar } from "@/components/Navigation";
 import { SidebarProvider } from "@/components/ui/sidebar";

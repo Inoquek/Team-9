@@ -1,9 +1,9 @@
 import { useEffect, useMemo, useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
-import { Sprout, Apple, Award, Users } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Trophy, Target, TrendingUp, Users, CheckCircle, Clock, MessageSquare, BookOpen } from "lucide-react";
 
 import { useAuth } from "@/contexts/AuthContext";
 import { useTeacherClass } from "@/contexts/TeacherClassContext";
@@ -20,128 +20,190 @@ import {
 } from "firebase/firestore";
 import { db } from "@/lib/firebase";
 
-/** ---------- helpers ---------- */
+/** ---------- types ---------- */
 
-type ProgressRow = {
-  studentId: string;
-  total: number;
-  completed: number;
-};
-
-function stageFromPct(p: number) {
-  if (p >= 90) return { label: "Blooming", badge: "bg-emerald-100 text-emerald-700" };
-  if (p >= 60) return { label: "Sprout",   badge: "bg-lime-100 text-lime-700" };
-  if (p > 0)   return { label: "Seedling", badge: "bg-amber-100 text-amber-700" };
-  return { label: "Seed", badge: "bg-slate-100 text-slate-700" };
+interface GameStats {
+  totalParticipants: number;
+  currentUserScore: number;
+  currentUserRank: number;
+  topScore: number;
+  medianScore: number;
+  averageScore: number;
+  currentUserPercentile: number;
 }
+
+/** ---------- helpers ---------- */
 
 /**
  * Compute a student's completion ratio by looking at assignments in their class.
  * Uses the submissions collection to check completion status.
  */
-
 async function getStudentAssignmentProgress(
-    studentId: string,
-    classId?: string
-  ): Promise<{ total: number; completed: number }> {
-    if (!classId) return { total: 0, completed: 0 };
-  
-    try {
-      // Pull this class's active assignments
-      const qAssign = query(
-        collection(db, "assignments"),
-        where("classId", "==", classId),
-        where("status", "==", "active")
+  studentId: string,
+  classId?: string
+): Promise<{ total: number; completed: number; totalPoints: number; earnedPoints: number }> {
+  if (!classId) return { total: 0, completed: 0, totalPoints: 0, earnedPoints: 0 };
+
+  try {
+    // Pull this class's active assignments
+    const qAssign = query(
+      collection(db, "assignments"),
+      where("classId", "==", classId),
+      where("status", "==", "active")
+    );
+    const asSnap = await getDocs(qAssign);
+
+    let total = 0;
+    let completed = 0;
+    let totalPoints = 0;
+    let earnedPoints = 0;
+
+    for (const assignment of asSnap.docs) {
+      total += 1;
+      totalPoints += assignment.data().points || 0;
+
+      // Check if student has submitted this assignment
+      const submissionQuery = query(
+        collection(db, "submissions"),
+        where("assignmentId", "==", assignment.id),
+        where("studentId", "==", studentId)
       );
-      const asSnap = await getDocs(qAssign);
-    
-      let total = 0;
-      let completed = 0;
-    
-      for (const assignment of asSnap.docs) {
-        total += 1;
-        
-        // Check if student has submitted this assignment
-        const submissionQuery = query(
-          collection(db, "submissions"),
-          where("assignmentId", "==", assignment.id),
-          where("studentId", "==", studentId)
-        );
-        
-        const submissionSnap = await getDocs(submissionQuery);
-        
-        if (!submissionSnap.empty) {
-          // Student has submitted - check if it's completed
-          const submission = submissionSnap.docs[0];
-          const submissionData = submission.data();
-          
-          // Consider approved, submitted, and pending as completed
-          // (needsRevision means they need to fix something but it was submitted)
-          if (submissionData.status === 'approved' || 
-              submissionData.status === 'submitted' || 
-              submissionData.status === 'pending') {
-            completed += 1;
-          }
+
+      const submissionSnap = await getDocs(submissionQuery);
+
+      if (!submissionSnap.empty) {
+        // Student has submitted - check if it's completed
+        const submission = submissionSnap.docs[0];
+        const submissionData = submission.data();
+
+        // Consider approved, submitted, and pending as completed
+        if (submissionData.status === 'approved' || 
+            submissionData.status === 'submitted' || 
+            submissionData.status === 'pending') {
+          completed += 1;
+          earnedPoints += assignment.data().points || 0;
         }
       }
-    
-      return { total, completed };
-    } catch (error) {
-      console.error('Error getting student assignment progress:', error);
-      return { total: 0, completed: 0 };
     }
+
+    return { total, completed, totalPoints, earnedPoints };
+  } catch (error) {
+    console.error('Error getting student assignment progress:', error);
+    return { total: 0, completed: 0, totalPoints: 0, earnedPoints: 0 };
   }
+}
+
+/**
+ * Calculate ranking statistics from student data
+ */
+function calculateRankingStats(
+  students: Student[],
+  progress: Record<string, { total: number; completed: number; totalPoints: number; earnedPoints: number }>,
+  currentUserId: string
+): GameStats {
+  if (students.length === 0) {
+    return {
+      totalParticipants: 0,
+      currentUserScore: 0,
+      currentUserRank: 0,
+      topScore: 0,
+      medianScore: 0,
+      averageScore: 0,
+      currentUserPercentile: 0,
+    };
+  }
+
+  // Calculate scores for all students based on points
+  const scores = students.map(student => {
+    const p = progress[student.id];
+    const score = p && p.totalPoints > 0 ? Math.round((p.earnedPoints / p.totalPoints) * 100) : 0;
+    return {
+      studentId: student.id,
+      score,
+      isCurrentUser: student.id === currentUserId,
+    };
+  });
+
+  // Sort by score (descending)
+  scores.sort((a, b) => b.score - a.score);
+
+  // Calculate ranks
+  const rankedScores = scores.map((item, index) => ({
+    ...item,
+    rank: index + 1,
+  }));
+
+  // Find current user's data
+  const currentUser = rankedScores.find(s => s.isCurrentUser);
+  const currentUserScore = currentUser?.score || 0;
+  const currentUserRank = currentUser?.rank || 0;
+
+  // Calculate statistics
+  const allScores = scores.map(s => s.score);
+  const topScore = Math.max(...allScores);
+  const averageScore = Math.round(allScores.reduce((sum, score) => sum + score, 0) / allScores.length);
   
+  // Calculate median
+  const sortedScores = [...allScores].sort((a, b) => a - b);
+  const medianScore = sortedScores.length % 2 === 0
+    ? Math.round((sortedScores[sortedScores.length / 2 - 1] + sortedScores[sortedScores.length / 2]) / 2)
+    : sortedScores[Math.floor(sortedScores.length / 2)];
+
+  // Calculate percentile
+  const currentUserPercentile = currentUserRank > 0 
+    ? Math.round(((students.length - currentUserRank + 1) / students.length) * 100)
+    : 0;
+
+  return {
+    totalParticipants: students.length,
+    currentUserScore,
+    currentUserRank,
+    topScore,
+    medianScore,
+    averageScore,
+    currentUserPercentile,
+  };
+}
+
+
+
 /** ---------- component ---------- */
 
-export const GardenGame = () => {
+const GardenGame = () => {
   const { user } = useAuth() as { user: User };
   const { selectedClass } = useTeacherClass();
   const [students, setStudents] = useState<Student[]>([]);
-  const [progress, setProgress] = useState<Record<string, ProgressRow>>({});
+  const [progress, setProgress] = useState<Record<string, { total: number; completed: number; totalPoints: number; earnedPoints: number }>>({});
   const [loading, setLoading] = useState(true);
 
-  // Only teachers can access the garden
-  if (user?.role !== "teacher") {
-    return (
-      <div className="space-y-6">
-        <div className="flex items-start justify-between">
-          <div>
-            <h1 className="text-3xl font-bold">Class Garden</h1>
-            <p className="text-muted-foreground mt-1">
-              This feature is only available to teachers.
-            </p>
-          </div>
-        </div>
-        
-        <Card>
-          <CardContent className="p-6 text-center">
-            <div className="text-muted-foreground">
-              <Sprout className="h-12 w-12 mx-auto mb-4 text-muted-foreground/50" />
-              <p className="text-lg font-medium">Teacher Access Only</p>
-              <p className="text-sm">The Class Garden feature is designed for teachers to monitor student progress.</p>
-            </div>
-          </CardContent>
-        </Card>
-      </div>
-    );
-  }
+  // Determine class ID based on user role
+  const activeClassId = useMemo(() => {
+    if (user?.role === "teacher") {
+      return selectedClass?.id;
+    } else if (user?.role === "parent") {
+      // For parents, we'll need to get their children's class
+      // This is a placeholder - you might need to implement this logic
+      // For now, return null to show the "no class available" message
+      return null;
+    }
+    return null;
+  }, [user?.role, selectedClass?.id]);
 
-  // Use selectedClass from TeacherClassContext for teachers
-  const activeClassId = selectedClass?.id;
-
-  // Load students for teacher's class
+  // Load students for the class
   useEffect(() => {
     let cancelled = false;
-  
+
     async function load() {
-      if (!user || user.role !== "teacher") return;
+      if (!user || !activeClassId) {
+        if (!cancelled) {
+          setStudents([]);
+          setLoading(false);
+        }
+        return;
+      }
+
       setLoading(true);
       try {
-        if (!activeClassId) {
-          if (!cancelled) setStudents([]);
-          return; // wait for class lookup to finish
-        }
         const rows = await StudentService.getStudentsByClass(activeClassId);
         if (!cancelled) setStudents(rows);
       } catch (error) {
@@ -151,23 +213,23 @@ export const GardenGame = () => {
         if (!cancelled) setLoading(false);
       }
     }
-  
+
     load();
     return () => { cancelled = true; };
-  }, [user?.uid, user?.role, activeClassId]);
+  }, [user?.uid, activeClassId]);
 
-  // load assignment progress for each student
+  // Load assignment progress for each student
   useEffect(() => {
     let cancelled = false;
 
     async function loadAllProgress() {
       if (students.length === 0) return;
-      const map: Record<string, ProgressRow> = {};
+      const map: Record<string, { total: number; completed: number; totalPoints: number; earnedPoints: number }> = {};
 
       // Compute per student
       for (const s of students) {
-        const { total, completed } = await getStudentAssignmentProgress(s.id, (s as any).classId);
-        map[s.id] = { studentId: s.id, total, completed };
+        const { total, completed, totalPoints, earnedPoints } = await getStudentAssignmentProgress(s.id, (s as any).classId);
+        map[s.id] = { total, completed, totalPoints, earnedPoints };
       }
 
       if (!cancelled) setProgress(map);
@@ -177,27 +239,20 @@ export const GardenGame = () => {
     return () => { cancelled = true; };
   }, [students]);
 
-  const classSize = students.length;
-  const avgPct = useMemo(() => {
-    if (classSize === 0) return 0;
-    let sum = 0;
-    students.forEach((s) => {
-      const p = progress[s.id];
-      const pct = p && p.total > 0 ? Math.round((p.completed / p.total) * 100) : 0;
-      sum += pct;
-    });
-    return Math.round(sum / Math.max(1, classSize));
-  }, [students, progress, classSize]);
+  // Calculate ranking statistics
+  const gameStats = useMemo(() => {
+    return calculateRankingStats(students, progress, user?.uid || '');
+  }, [students, progress, user?.uid]);
 
-  // Show message for teachers if no class is selected
-  if (user?.role === "teacher" && !activeClassId) {
+  // Show message if no class is available
+  if (!activeClassId) {
     return (
       <div className="space-y-6">
         <div className="flex items-start justify-between">
           <div>
-            <h1 className="text-3xl font-bold">Class Garden</h1>
+            <h1 className="text-3xl font-bold">Garden Game</h1>
             <p className="text-muted-foreground mt-1">
-              Each plant represents a student. Growth reflects assignment completion.
+              Track your progress and see how you rank among your classmates.
             </p>
           </div>
         </div>
@@ -205,9 +260,14 @@ export const GardenGame = () => {
         <Card>
           <CardContent className="p-6 text-center">
             <div className="text-muted-foreground">
-              <Sprout className="h-12 w-12 mx-auto mb-4 text-muted-foreground/50" />
-              <p className="text-lg font-medium">No Class Selected</p>
-              <p className="text-sm">Please select a class from your dashboard to view the garden.</p>
+              <Trophy className="h-12 w-12 mx-auto mb-4 text-muted-foreground/50" />
+              <p className="text-lg font-medium">No Class Available</p>
+              <p className="text-sm">
+                {user?.role === "teacher" 
+                  ? "Please select a class from your dashboard to view the game."
+                  : "You need to be assigned to a class to participate in the game."
+                }
+              </p>
             </div>
           </CardContent>
         </Card>
@@ -217,13 +277,16 @@ export const GardenGame = () => {
 
   return (
     <div className="space-y-6">
-      {/* Header / Stats */}
+      {/* Header */}
       <div className="flex items-start justify-between">
         <div>
-          <h1 className="text-3xl font-bold">Class Garden</h1>
+          <h1 className="text-3xl font-bold">Garden Game</h1>
           <p className="text-muted-foreground mt-1">
-            Each plant represents a student. Growth reflects assignment completion.
-            {user?.role === "teacher" && activeClassId && (
+            {user?.role === "teacher" 
+              ? "Monitor student progress and see how they rank in your class."
+              : "View how your children are performing relative to their classmates."
+            }
+            {user?.role === "teacher" && (
               <span className="block mt-1 text-sm font-medium">
                 Viewing: {selectedClass?.name}
               </span>
@@ -232,114 +295,170 @@ export const GardenGame = () => {
         </div>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        <Card className="border-l-4 border-l-emerald-500">
-          <CardContent className="p-4">
-            <div className="flex items-center gap-3">
-              <Users className="h-7 w-7 text-emerald-600" />
-              <div>
-                <p className="text-2xl font-bold">{classSize}</p>
-                <p className="text-sm text-muted-foreground">Students in garden</p>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card className="border-l-4 border-l-lime-500">
-          <CardContent className="p-4">
-            <div className="flex items-center gap-3">
-              <Sprout className="h-7 w-7 text-lime-600" />
-              <div>
-                <p className="text-2xl font-bold">{avgPct}%</p>
-                <p className="text-sm text-muted-foreground">Average growth</p>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card className="border-l-4 border-l-yellow-500">
-          <CardContent className="p-4">
-            <div className="flex items-center gap-3">
-              <Award className="h-7 w-7 text-yellow-600" />
-              <div>
-                <p className="text-2xl font-bold">
-                  {
-                    students.filter((s) => {
-                      const p = progress[s.id];
-                      const pct = p && p.total > 0 ? (p.completed / p.total) * 100 : 0;
-                      return pct >= 90;
-                    }).length
-                  }
-                </p>
-                <p className="text-sm text-muted-foreground">Blooming (≥90%)</p>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-      </div>
-
-      {/* Garden grid */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-        {loading && (
-          <Card>
-            <CardContent className="p-6 text-sm text-muted-foreground">
-              Loading garden…
-            </CardContent>
-          </Card>
-        )}
-
-        {!loading && students.length === 0 && (
-          <Card>
-            <CardContent className="p-6 text-sm text-muted-foreground">
-              No students found for this account.
-            </CardContent>
-          </Card>
-        )}
-
-        {students.map((s) => {
-          const p = progress[s.id];
-          const pct = p && p.total > 0 ? Math.round((p.completed / p.total) * 100) : 0;
-          const stage = stageFromPct(pct);
-
-          return (
-            <Card key={s.id} className="hover:shadow-lg transition-shadow">
-              <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Sprout className="h-5 w-5" />
-                <span className="truncate">{s.name ?? "Student"}</span>
-                <Badge className={stage.badge}>{stage.label}</Badge>
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-3">
-            <div className="text-sm text-muted-foreground">
-                {s.classId ? `Class: ${s.classId}` : "No class set"}
-            </div>
-
-                {/* progress bar */}
-                {/* If you don't have a Progress component, replace with a simple div bar */}
-                <div className="flex items-center justify-between text-sm">
-                  <span>Growth</span>
-                  <span className="text-muted-foreground">{pct}%</span>
-                </div>
-                <Progress value={pct} />
-
-                <div className="text-xs text-muted-foreground">
-                  {p ? `${p.completed}/${p.total} assignments` : "No assignments yet"}
-                </div>
-
-                {/* a tiny "reward" if fully ripe */}
-                {pct >= 100 && (
-                  <div className="flex items-center gap-2 text-emerald-700 text-sm">
-                    <Apple className="h-4 w-4" />
-                    Ripe! Great job 🎉
+      {/* Teacher Student Progress Dashboard */}
+      {!loading && user?.role === "teacher" && students.length > 0 && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2 text-blue-800">
+              <Users className="h-6 w-6" />
+              Student Progress Overview
+            </CardTitle>
+            <p className="text-sm text-muted-foreground">
+              Monitor all students' progress and identify who needs attention
+            </p>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            {students.map((student) => {
+              const studentProgress = progress[student.id];
+              const completionRate = studentProgress && studentProgress.totalPoints > 0 
+                ? Math.round((studentProgress.earnedPoints / studentProgress.totalPoints) * 100) 
+                : 0;
+              const missingAssignments = studentProgress ? studentProgress.total - studentProgress.completed : 0;
+              const isBehind = completionRate < 70;
+              const isOnTrack = completionRate >= 70 && completionRate < 90;
+              const isExcelling = completionRate >= 90;
+              
+              return (
+                <div key={student.id} className={`p-4 rounded-lg border-2 ${
+                  isBehind ? 'border-red-200 bg-red-50' :
+                  isOnTrack ? 'border-yellow-200 bg-yellow-50' :
+                  'border-green-200 bg-green-50'
+                }`}>
+                  <div className="flex items-center justify-between mb-3">
+                    <div className="flex items-center gap-3">
+                      <div className={`w-3 h-3 rounded-full ${
+                        isBehind ? 'bg-red-500' :
+                        isOnTrack ? 'bg-yellow-500' :
+                        'bg-green-500'
+                      }`} />
+                      <h3 className="font-semibold text-gray-800">{student.name}</h3>
+                      <Badge className={`${
+                        isBehind ? 'bg-red-100 text-red-700' :
+                        isOnTrack ? 'bg-yellow-100 text-yellow-700' :
+                        'bg-green-100 text-green-700'
+                      }`}>
+                        {isBehind ? 'Needs Attention' : isOnTrack ? 'On Track' : 'Excelling'}
+                      </Badge>
+                    </div>
+                    <div className="text-right">
+                      <div className="text-2xl font-bold text-gray-800">{completionRate}%</div>
+                      <div className="text-sm text-muted-foreground">
+                        {studentProgress?.completed || 0}/{studentProgress?.total || 0} assignments
+                      </div>
+                    </div>
                   </div>
-                )}
-              </CardContent>
-            </Card>
-          );
-        })}
-      </div>
+                  
+                  {/* Progress Bar */}
+                  <div className="mb-3">
+                    <div className="flex justify-between text-sm text-muted-foreground mb-1">
+                      <span>Progress</span>
+                      <span>{studentProgress?.earnedPoints || 0}/{studentProgress?.totalPoints || 0} points</span>
+                    </div>
+                    <Progress 
+                      value={completionRate} 
+                      className={`h-3 ${
+                        isBehind ? 'bg-red-100' :
+                        isOnTrack ? 'bg-yellow-100' :
+                        'bg-green-100'
+                      }`}
+                    />
+                  </div>
+                  
+                  {/* Missing Assignments & Actions */}
+                  {missingAssignments > 0 && (
+                    <div className="flex items-center justify-between p-3 bg-white rounded-lg border border-gray-200">
+                      <div className="flex items-center gap-2">
+                        <Clock className="h-4 w-4 text-orange-600" />
+                        <span className="text-sm font-medium text-gray-700">
+                          {missingAssignments} missing assignment{missingAssignments !== 1 ? 's' : ''}
+                        </span>
+                      </div>
+                      <div className="flex gap-2">
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => window.location.href = '/assignments'}
+                          className="bg-blue-50 border-blue-200 text-blue-700 hover:bg-blue-100"
+                        >
+                          <BookOpen className="h-4 w-4 mr-1" />
+                          View Assignments
+                        </Button>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => {
+                            // Navigate to assignments page with student filter
+                            window.location.href = `/assignments?student=${student.id}`;
+                          }}
+                          className="bg-orange-50 border-orange-200 text-orange-700 hover:bg-orange-100"
+                        >
+                          <MessageSquare className="h-4 w-4 mr-1" />
+                          Add Comment
+                        </Button>
+                      </div>
+                    </div>
+                  )}
+                  
+                  {/* Motivational Message */}
+                  {missingAssignments === 0 && (
+                    <div className="p-3 bg-green-50 rounded-lg border border-green-200">
+                      <div className="flex items-center gap-2 text-green-700">
+                        <CheckCircle className="h-4 w-4" />
+                        <span className="text-sm font-medium">All assignments completed! Great work!</span>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+          </CardContent>
+        </Card>
+      )}
+
+
+
+
+
+
+
+
+
+
+
+
+      {/* Loading State */}
+      {loading && (
+        <Card>
+          <CardContent className="p-6 text-center">
+            <div className="text-muted-foreground">
+              <Trophy className="h-12 w-12 mx-auto mb-4 text-muted-foreground/50" />
+              <p className="text-lg font-medium">Loading Game Data</p>
+              <p className="text-sm">Calculating rankings and statistics...</p>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* No Data State */}
+      {!loading && gameStats.totalParticipants === 0 && (
+        <Card>
+          <CardContent className="p-6 text-center">
+            <div className="text-muted-foreground">
+              <Trophy className="h-12 w-12 mx-auto mb-4 text-muted-foreground/50" />
+              <p className="text-lg font-medium">No Game Data Available</p>
+              <p className="text-sm">
+                {user?.role === "teacher" 
+                  ? "No students found in this class, or no assignments have been created yet."
+                  : "No assignments have been created for your class yet, or no submissions have been made."
+                }
+              </p>
+            </div>
+          </CardContent>
+        </Card>
+      )}
     </div>
   );
 };
+
+export default GardenGame;
 

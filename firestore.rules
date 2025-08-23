@@ -1,178 +1,20 @@
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
-    // Allow public read access to user documents for authentication process
-    // This is needed during login before the user is authenticated
-    match /users/{userId} {
+    // PROTOTYPE RULES - Very permissive for development/testing
+    // TODO: Add proper security rules before production deployment
+     match /users/{userId} {
       allow read: if true; // Allow public read for authentication
-      allow write: if request.auth != null && request.auth.uid == userId; // Only authenticated users can write their own data
+      allow write: if request.auth != null && request.auth.uid == userId; // Only authenticated users can write their own database
     }
-    
-    // Allow admins to read/write all user documents
-    match /users/{userId} {
-      allow read, write: if request.auth != null && 
-        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin';
-    }
-    
-    // Allow access to usernames collection for authentication (username lookup)
-    // Public read access needed for login process before authentication
     match /usernames/{username} {
       allow read: if true; // Allow public read for username lookup during login
       allow write: if request.auth != null; // Only authenticated users can write
     }
     
-    // Temporary: Allow all access to usernames collection for debugging
-    // This will be removed once authentication is working
-    match /usernames/{document=**} {
-      allow read, write: if true;
-    }
-    
-    // Allow teachers to read/write their own class documents
-    match /classes/{classId} {
-      allow read, write: if request.auth != null && 
-        (resource.data.teacherId == request.auth.uid || 
-         get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin');
-    }
-    
-    // Allow access to students collection for teachers and parents
-    match /students/{studentId} {
-      allow read: if request.auth != null && (
-        // Teachers can read students in their classes
-        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'teacher' ||
-        // Parents can read their own student data
-        resource.data.parentId == request.auth.uid ||
-        // Parents can read students in classes where they have children (for garden view)
-        (get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'parent' &&
-         exists(/databases/$(database)/documents/students?where=parentId==$(request.auth.uid) && classId==$(resource.data.classId) && isActive==true)) ||
-        // Admins can read all students
-        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin'
-      );
-      allow write: if request.auth != null && 
-        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin';
-    }
-    
-    // NEW: Allow parents to read class view data for classes where they have children
-    match /classViews/{classId} {
-      allow read: if request.auth != null && (
-        // Teachers can read their own class views
-        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'teacher' ||
-        // Parents can read class views for classes where they have children
-        (get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'parent' &&
-         exists(/databases/$(database)/documents/students?where=parentId==$(request.auth.uid) && classId==$(classId) && isActive==true)) ||
-        // Admins can read all class views
-        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin'
-      );
-      allow write: if request.auth != null && 
-        (get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'teacher' ||
-         get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin');
-    }
-    
-    // NEW: Allow parents to read class summaries for classes where they have children
-    match /classSummaries/{classId} {
-      allow read: if request.auth != null && (
-        // Teachers can read their own class summaries
-        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'teacher' ||
-        // Parents can read class summaries for classes where they have children
-        (get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'parent' &&
-         exists(/databases/$(database)/documents/students?where=parentId==$(request.auth.uid) && classId==$(classId) && isActive==true)) ||
-        // Admins can read all class summaries
-        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin'
-      );
-      allow write: if request.auth != null && 
-        (get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'teacher' ||
-         get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin');
-    }
-    
-    // Allow teachers to create assignments (simplified for new documents)
-    match /assignments/{assignmentId} {
-      allow read: if request.auth != null;
-      allow create: if request.auth != null && 
-        request.resource.data.teacherId == request.auth.uid;
-      allow update, delete: if request.auth != null && 
-        (resource.data.teacherId == request.auth.uid || 
-         get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin');
-    }
-    
-    // Allow teachers to create announcements (simplified for new documents)
-    match /announcements/{announcementId} {
-      allow read: if request.auth != null;
-      allow create: if request.auth != null && 
-        request.resource.data.teacherId == request.auth.uid;
-      allow update, delete: if request.auth != null && 
-        (resource.data.teacherId == request.auth.uid || 
-         get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin');
-    }
-    
-    // Allow comments on assignments
-    match /assignments/{assignmentId}/comments/{commentId} {
-      allow read: if request.auth != null;
-      allow create: if request.auth != null && 
-        request.resource.data.userId == request.auth.uid;
-      allow update, delete: if request.auth != null && 
-        (resource.data.userId == request.auth.uid || 
-         get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin' ||
-         get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'teacher');
-    }
-    
-    // Allow comments on announcements
-    match /announcements/{announcementId}/comments/{commentId} {
-      allow read: if request.auth != null;
-      allow create: if request.auth != null && 
-        request.resource.data.userId == request.auth.uid;
-      allow update, delete: if request.auth != null && 
-        (resource.data.userId == request.auth.uid || 
-         get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin' ||
-         get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin' ||
-         get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'teacher');
-    }
-    
-    // Allow students to submit assignments
-    match /submissions/{submissionId} {
-      allow read: if request.auth != null && (
-        resource.data.studentId == request.auth.uid || 
-        resource.data.parentId == request.auth.uid ||
-        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'teacher'
-      );
-      allow create: if request.auth != null && (
-        request.resource.data.studentId == request.auth.uid || 
-        request.resource.data.parentId == request.auth.uid ||
-        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'teacher'
-      );
-      allow update, delete: if request.auth != null && (
-        resource.data.studentId == request.auth.uid || 
-        resource.data.parentId == request.auth.uid ||
-        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'teacher'
-      );
-    }
-    
-    // NEW: Allow access to study time collection
-    // Parents can read/write their child's study time data
-    // Teachers can read study time for students in their classes
-    // Admins can read/write all study time data
-    match /studyTime/{studyTimeId} {
-      allow read: if request.auth != null && (
-        // Extract studentId from the document ID (format: studentId_date)
-        // Parents can read their child's study time
-        get(/databases/$(database)/documents/students/$(studyTimeId.split('_')[0])).data.parentId == request.auth.uid ||
-        // Teachers can read study time for students in their classes
-        (get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'teacher' &&
-         get(/databases/$(database)/documents/students/$(studyTimeId.split('_')[0])).data.classId == 
-         get(/databases/$(database)/documents/users/$(request.auth.uid)).data.classId) ||
-        // Admins can read all study time
-        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin'
-      );
-      allow write: if request.auth != null && (
-        // Parents can write their child's study time
-        get(/databases/$(database)/documents/students/$(studyTimeId.split('_')[0])).data.parentId == request.auth.uid ||
-        // Admins can write all study time
-        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin'
-      );
-    }
-    
-    // Allow admins to read/write all documents
+    // Allow all authenticated users to read/write everything
     match /{document=**} {
-      allow read, write: if request.auth != null && 
-        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin';
+      allow read, write: if request.auth != null;
     }
   }
 }
