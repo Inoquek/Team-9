@@ -7,13 +7,14 @@ import { AssignmentPage } from "@/components/AssignmentPage";
 import { AnnouncementPage } from "@/components/AnnouncementPage";
 import GardenGame from "@/components/GardenGame";
 import { ParentGarden } from "@/components/ParentGarden";
+import { ForumPage } from "@/components/ForumPage"; // 添加Forum导入
 import { AppSidebar, TopBar } from "@/components/Navigation";
 import { SidebarProvider } from "@/components/ui/sidebar";
 import { useAuth } from "@/contexts/AuthContext";
 import { TeacherClassProvider } from "@/contexts/TeacherClassContext";
 import { Metrics } from "@/components/Metrics";
 
-type CurrentPage = "dashboard" | "assignments" | "announcements" | "metrics" | "garden" | "parentGarden";
+type CurrentPage = "dashboard" | "assignments" | "announcements" | "metrics" | "garden" | "parentGarden" | "forum"; // 添加forum
 
 const Index = () => {
   const { user, loading } = useAuth();
@@ -81,13 +82,21 @@ const Index = () => {
                 {currentPage === "announcements" && (
                   <AnnouncementPage userRole={user.role} />
                 )}
+                
+              {/* 添加Forum页面 */}
+              {currentPage === "forum" && (
+                <ForumPage 
+                  userRole={user.role} 
+                  currentUserName={user.displayName}
+                />
+              )}
 
                 {currentPage === "metrics" && <Metrics />}
 
                 {currentPage === "garden" && <GardenGame />}
 
                 {currentPage === "parentGarden" && <ParentGarden />}
-              </div>
+            </div>
             </main>
           </div>
         </div>

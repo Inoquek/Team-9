@@ -38,6 +38,7 @@ export interface Assignment {
   id: string;
   title: string;
   description: string;
+  category:string;
   type: 'alphabet-time' | 'vocabulary-time' | 'sight-words-time' | 'reading-time' | 'post-programme-test';
   dueDate: Date;
   teacherId: string;

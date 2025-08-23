@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
-import { Plus, Users, UserPlus, Shield, BookOpen, Bell } from "lucide-react";
+import { Plus, Users, UserPlus, Shield, BookOpen, Bell, MessageSquare } from "lucide-react";
 import { Class, Student, User } from "@/lib/types";
 import { collection, query, where, getDocs, doc, updateDoc } from "firebase/firestore";
 import { db } from "@/lib/firebase";
@@ -12,7 +12,7 @@ import { ClassCreation } from "./ClassCreation";
 import { UserCreation } from "./UserCreation";
 
 interface AdminDashboardProps {
-  onNavigate: (page: "assignments" | "announcements") => void;
+  onNavigate: (page: "assignments" | "announcements" | "forum") => void;
 }
 
 export const AdminDashboard = ({ onNavigate }: AdminDashboardProps) => {
@@ -217,6 +217,20 @@ export const AdminDashboard = ({ onNavigate }: AdminDashboardProps) => {
             <p className="text-muted-foreground">Send platform-wide announcements and updates</p>
           </CardContent>
         </Card>
+
+        <Card className="cursor-pointer hover:shadow-lg transition-shadow" onClick={() => onNavigate("forum")}>
+          <CardHeader>
+            <CardTitle className="flex items-center space-x-2">
+              <MessageSquare className="h-5 w-5 text-blue-500" />
+              <span>Community Forum</span>
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <p className="text-muted-foreground">Join discussions and share insights with the community</p>
+          </CardContent>
+        </Card>
+
+
       </div>
 
       {/* Content Area */}

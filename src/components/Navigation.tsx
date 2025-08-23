@@ -1,6 +1,6 @@
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { BookOpen, Home, Bell, LogOut, User, Heart, Star, TrendingUp, Sprout } from "lucide-react";
+import { BookOpen, Home, Bell, LogOut, User, Heart, Star, TrendingUp, Sprout, MessageSquare } from "lucide-react"; // 添加MessageSquare
 
 import { useAuth } from "@/contexts/AuthContext";
 import {
@@ -21,12 +21,8 @@ import { User as UserType } from "@/lib/types";
 
 interface AppSidebarProps {
   user: UserType;
-  currentPage: "dashboard" | "assignments" | "announcements" | "metrics" | "garden" | "parentGarden";
-  onNavigate: (page: "dashboard" | "assignments" | "announcements" | "metrics" | "garden" | "parentGarden") => void;
-  badgeCounts?: {
-    assignments: number;
-    announcements: number;
-  };
+  currentPage: "dashboard" | "assignments" | "announcements" | "metrics" | "garden" | "parentGarden" | "forum"; // 添加forum
+  onNavigate: (page: "dashboard" | "assignments" | "announcements" | "metrics" | "garden" | "parentGarden" | "forum") => void; // 添加forum
 }
 
 
@@ -75,6 +71,13 @@ export const AppSidebar = ({ user, currentPage, onNavigate, badgeCounts }: AppSi
       icon: Sprout,
       badge: null,
     }] : []),
+    // 添加Forum选项
+    {
+      title: "Forum",
+      page: "forum" as const,
+      icon: MessageSquare,
+      badge: null,
+    },
   ];
 
   const handleLogout = async () => {
