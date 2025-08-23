@@ -3,7 +3,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
-import { Plus, Users, BookOpen, Bell, BarChart3, Calendar, CheckCircle, Clock, ChevronRight, X } from "lucide-react";
+import { Plus, Users, BookOpen, Bell, BarChart3, Calendar, CheckCircle, Clock, ChevronRight, X, Sprout } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { useTeacherClass } from "@/contexts/TeacherClassContext";
 import { collection, query, where, getDocs } from "firebase/firestore";
@@ -15,7 +15,7 @@ import { AnnouncementService } from "@/lib/services/announcements";
 import { Assignment, Announcement } from "@/lib/types";
 
 interface TeacherDashboardProps {
-  onNavigate: (page: "assignments" | "announcements") => void;
+  onNavigate: (page: "assignments" | "announcements" | "garden") => void;
 }
 
 interface TeacherClass {
@@ -64,8 +64,6 @@ export const TeacherDashboard = ({ onNavigate }: TeacherDashboardProps) => {
             // Query students collection to get actual student count
             let studentCount = 0;
             try {
-              console.log(`Getting student count for class: ${classId} (${classData.name})`);
-              
               const studentsQuery = query(
                 collection(db, 'students'),
                 where('classId', '==', classId),
@@ -73,26 +71,10 @@ export const TeacherDashboard = ({ onNavigate }: TeacherDashboardProps) => {
               );
               const studentsSnapshot = await getDocs(studentsQuery);
               studentCount = studentsSnapshot.size;
-              
-              console.log(`Found ${studentCount} active students in class ${classId}`);
-              
-              // Debug: Log some student data
-              if (studentCount > 0) {
-                studentsSnapshot.docs.forEach((studentDoc, index) => {
-                  const studentData = studentDoc.data();
-                  console.log(`Student ${index + 1}:`, {
-                    id: studentDoc.id,
-                    name: studentData.name,
-                    classId: studentData.classId,
-                    isActive: studentData.isActive
-                  });
-                });
-              }
             } catch (error) {
               console.error(`Error getting student count for class ${classId}:`, error);
               // Fallback to stored count if available
               studentCount = classData.students?.length || 0;
-              console.log(`Fallback student count: ${studentCount}`);
             }
             
             return {

@@ -41,11 +41,46 @@ service cloud.firestore {
         get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'teacher' ||
         // Parents can read their own student data
         resource.data.parentId == request.auth.uid ||
+        // Parents can read students in classes where they have children (for garden view)
+        (get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'parent' &&
+         exists(/databases/$(database)/documents/students?where=parentId==$(request.auth.uid) && classId==$(resource.data.classId) && isActive==true)) ||
         // Admins can read all students
         get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin'
       );
       allow write: if request.auth != null && 
         get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin';
+    }
+    
+    // NEW: Allow parents to read class view data for classes where they have children
+    match /classViews/{classId} {
+      allow read: if request.auth != null && (
+        // Teachers can read their own class views
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'teacher' ||
+        // Parents can read class views for classes where they have children
+        (get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'parent' &&
+         exists(/databases/$(database)/documents/students?where=parentId==$(request.auth.uid) && classId==$(classId) && isActive==true)) ||
+        // Admins can read all class views
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin'
+      );
+      allow write: if request.auth != null && 
+        (get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'teacher' ||
+         get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin');
+    }
+    
+    // NEW: Allow parents to read class summaries for classes where they have children
+    match /classSummaries/{classId} {
+      allow read: if request.auth != null && (
+        // Teachers can read their own class summaries
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'teacher' ||
+        // Parents can read class summaries for classes where they have children
+        (get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'parent' &&
+         exists(/databases/$(database)/documents/students?where=parentId==$(request.auth.uid) && classId==$(classId) && isActive==true)) ||
+        // Admins can read all class summaries
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin'
+      );
+      allow write: if request.auth != null && 
+        (get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'teacher' ||
+         get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin');
     }
     
     // Allow teachers to create assignments (simplified for new documents)

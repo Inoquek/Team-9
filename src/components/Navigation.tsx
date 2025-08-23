@@ -1,6 +1,6 @@
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { BookOpen, Home, Bell, LogOut, User, Heart, Star, TrendingUp } from "lucide-react";
+import { BookOpen, Home, Bell, LogOut, User, Heart, Star, TrendingUp, Sprout } from "lucide-react";
 
 import { useAuth } from "@/contexts/AuthContext";
 import {
@@ -21,8 +21,8 @@ import { User as UserType } from "@/lib/types";
 
 interface AppSidebarProps {
   user: UserType;
-  currentPage: "dashboard" | "assignments" | "announcements" | "metrics";
-  onNavigate: (page: "dashboard" | "assignments" | "announcements" | "metrics") => void;
+  currentPage: "dashboard" | "assignments" | "announcements" | "metrics" | "garden" | "parentGarden";
+  onNavigate: (page: "dashboard" | "assignments" | "announcements" | "metrics" | "garden" | "parentGarden") => void;
   badgeCounts?: {
     assignments: number;
     announcements: number;
@@ -61,6 +61,20 @@ export const AppSidebar = ({ user, currentPage, onNavigate, badgeCounts }: AppSi
       icon: TrendingUp,
       badge: null,
     },
+    // Garden Game (teacher only)
+    ...(user.role === "teacher" ? [{
+      title: "Garden Game",
+      page: "garden" as const,
+      icon: Sprout,
+      badge: null,
+    }] : []),
+    // Parent Garden (parent only)
+    ...(user.role === "parent" ? [{
+      title: "My Garden",
+      page: "parentGarden" as const,
+      icon: Sprout,
+      badge: null,
+    }] : []),
   ];
 
   const handleLogout = async () => {

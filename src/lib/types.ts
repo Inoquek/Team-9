@@ -92,6 +92,47 @@ export interface Portfolio {
   updatedAt: Date;
 }
 
+// NEW: Garden and Class Summary types
+export interface ClassSummary {
+  id: string;
+  classId: string;
+  className: string;
+  teacherId: string;
+  lastUpdated: Date;
+  
+  // Aggregated statistics (safe for parents to see)
+  totalStudents: number;
+  averageCompletionRate: number;
+  totalAssignments: number;
+  completedAssignments: number;
+  
+  // Performance distribution (anonymized)
+  performanceDistribution: {
+    blooming: number;      // 90-100%
+    sprout: number;        // 60-89%
+    seedling: number;      // 1-59%
+    seed: number;          // 0%
+  };
+  
+  // Recent activity (last 7 days)
+  recentActivity: {
+    newSubmissions: number;
+    completedAssignments: number;
+    averageStudyTime: number;
+  };
+}
+
+export interface GardenStudentData {
+  id: string;
+  name: string;
+  completionRate: number;
+  stage: 'seed' | 'seedling' | 'sprout' | 'blooming';
+  totalAssignments: number;
+  completedAssignments: number;
+  lastActivity: Date;
+  isOwnChild?: boolean; // For parent view
+}
+
 export interface CategoryProgress {
   level: number;
   points: number;

@@ -59,6 +59,7 @@ export class StudentService {
   // Get students by parent ID
   static async getStudentsByParent(parentId: string): Promise<Student[]> {
     try {
+      // First try with ordering (requires composite index)
       const q = query(
         collection(db, 'students'),
         where('parentId', '==', parentId),
@@ -71,7 +72,35 @@ export class StudentService {
         id: doc.id,
         ...doc.data()
       })) as Student[];
-    } catch (error) {
+    } catch (error: any) {
+      // If composite index error, fall back to query without ordering
+      if (error.code === 'failed-precondition' || error.message?.includes('index')) {
+        console.warn('Composite index not available for parent query, falling back to unordered query');
+        try {
+          const q = query(
+            collection(db, 'students'),
+            where('parentId', '==', parentId),
+            where('isActive', '==', true)
+          );
+          
+          const querySnapshot = await getDocs(q);
+          const students = querySnapshot.docs.map(doc => ({
+            id: doc.id,
+            ...doc.data()
+          })) as Student[];
+          
+          // Sort manually in memory as fallback
+          return students.sort((a, b) => {
+            const dateA = a.createdAt instanceof Date ? a.createdAt : new Date(a.createdAt);
+            const dateB = b.createdAt instanceof Date ? b.createdAt : new Date(b.createdAt);
+            return dateB.getTime() - dateA.getTime();
+          });
+        } catch (fallbackError) {
+          console.error('Fallback query also failed:', fallbackError);
+          throw fallbackError;
+        }
+      }
+      
       console.error('Get students by parent error:', error);
       throw error;
     }
@@ -80,6 +109,7 @@ export class StudentService {
   // Get students by class ID
   static async getStudentsByClass(classId: string): Promise<Student[]> {
     try {
+      // First try with ordering (requires composite index)
       const q = query(
         collection(db, 'students'),
         where('classId', '==', classId),
@@ -92,7 +122,35 @@ export class StudentService {
         id: doc.id,
         ...doc.data()
       })) as Student[];
-    } catch (error) {
+    } catch (error: any) {
+      // If composite index error, fall back to query without ordering
+      if (error.code === 'failed-precondition' || error.message?.includes('index')) {
+        console.warn('Composite index not available, falling back to unordered query');
+        try {
+          const q = query(
+            collection(db, 'students'),
+            where('classId', '==', classId),
+            where('isActive', '==', true)
+          );
+          
+          const querySnapshot = await getDocs(q);
+          const students = querySnapshot.docs.map(doc => ({
+            id: doc.id,
+            ...doc.data()
+          })) as Student[];
+          
+          // Sort manually in memory as fallback
+          return students.sort((a, b) => {
+            const dateA = a.createdAt instanceof Date ? a.createdAt : new Date(a.createdAt);
+            const dateB = b.createdAt instanceof Date ? b.createdAt : new Date(b.createdAt);
+            return dateB.getTime() - dateA.getTime();
+          });
+        } catch (fallbackError) {
+          console.error('Fallback query also failed:', fallbackError);
+          throw fallbackError;
+        }
+      }
+      
       console.error('Get students by class error:', error);
       throw error;
     }
