@@ -553,9 +553,32 @@ export const ForumPage = ({ userRole }: ForumPageProps) => {
   };
 
   // Format date
-  const formatDate = (date: Date) => {
+  const formatDate = (date: Date | any) => {
+  try {
+    // Handle different date formats
+    let actualDate: Date;
+    
+    if (date && typeof date.toDate === 'function') {
+      // Firestore Timestamp
+      actualDate = date.toDate();
+    } else if (date instanceof Date) {
+      // Already a Date object
+      actualDate = date;
+    } else if (typeof date === 'string' || typeof date === 'number') {
+      // String or number that can be parsed
+      actualDate = new Date(date);
+    } else {
+      // Fallback for invalid dates
+      return "Unknown date";
+    }
+
+    // Check if the date is valid
+    if (isNaN(actualDate.getTime())) {
+      return "Invalid date";
+    }
+
     const now = new Date();
-    const diffInMs = now.getTime() - date.getTime();
+    const diffInMs = now.getTime() - actualDate.getTime();
     const diffInMins = Math.floor(diffInMs / (1000 * 60));
     const diffInHours = Math.floor(diffInMs / (1000 * 60 * 60));
     const diffInDays = Math.floor(diffInMs / (1000 * 60 * 60 * 24));
@@ -564,7 +587,11 @@ export const ForumPage = ({ userRole }: ForumPageProps) => {
     if (diffInMins < 60) return `${diffInMins}m ago`;
     if (diffInHours < 24) return `${diffInHours}h ago`;
     if (diffInDays < 7) return `${diffInDays}d ago`;
-    return date.toLocaleDateString();
+    return actualDate.toLocaleDateString();
+  } catch (error) {
+    console.error('Error formatting date:', error, date);
+    return "Unknown date";
+  }
   };
 
   // Render comments tree
