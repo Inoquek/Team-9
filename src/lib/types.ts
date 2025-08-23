@@ -48,7 +48,7 @@ export interface Assignment {
   points: number;
   estimatedTime: number;
   createdAt: Date;
-  status: 'active' | 'archived';
+  status: 'active' | 'completed' | 'archived';
 }
 
 export interface FileAttachment {
@@ -154,7 +154,7 @@ export interface Submission {
   parentId: string;
   files: SubmissionFile[];
   submittedAt: Date;
-  status: 'submitted' | 'pending' | 'approved' | 'needsRevision';
+  status: 'submitted' | 'pending' | 'approved' | 'needsRevision' | 'completed';
   feedback?: Feedback;
   points: number;
   completionTimeMinutes: number; // Time taken to complete in minutes

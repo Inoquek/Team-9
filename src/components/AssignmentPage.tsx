@@ -198,7 +198,7 @@ export const AssignmentPage = ({ userRole }: AssignmentPageProps) => {
   const [uploadedFiles, setUploadedFiles] = useState<FileUpload[]>([]);
   const [submissionNote, setSubmissionNote] = useState("");
   const [isUploading, setIsUploading] = useState(false);
-  const [completionAnimation, setCompletionAnimation] = useState<string | null>(null);
+
   const [stopwatchMinimized, setStopwatchMinimized] = useState(false);
   const [submissions, setSubmissions] = useState<Submission[]>([]);
   
@@ -244,28 +244,41 @@ export const AssignmentPage = ({ userRole }: AssignmentPageProps) => {
     }
   }, []);
 
-  // Load user submissions
+  // Load user submissions and student data in a single effect to prevent race conditions
   useEffect(() => {
-    const loadUserSubmissions = async () => {
+    const loadUserData = async () => {
       if (!user) return;
       
       try {
         let userSubmissions: Submission[] = [];
         
         if (userRole === 'parent') {
-          // For parents, get their own submissions
-          console.log('Loading submissions for parent:', user.uid);
-          console.log('User object:', user);
-          console.log('User role:', userRole);
+          // Load student info first
+          const studentsQuery = query(
+            collection(db, 'students'),
+            where('parentId', '==', user.uid),
+            where('isActive', '==', true)
+          );
+          const studentsSnapshot = await getDocs(studentsQuery);
           
-          // Test Firestore access first
-          await testFirestoreAccess();
+          if (!studentsSnapshot.empty) {
+            const studentDoc = studentsSnapshot.docs[0];
+            const studentData = studentDoc.data();
+            setStudentInfo({
+              id: studentDoc.id,
+              name: studentData.name
+            });
+            
+            // Sync local study time with Firestore
+            await syncStudyTimeWithFirestore();
+          }
           
           // Get submissions for the current user (parent)
+          console.log('Loading submissions for parent:', user.uid);
           userSubmissions = await SubmissionService.getParentSubmissions(user.uid);
           console.log('Loaded parent submissions:', userSubmissions);
           
-          // Also update completion times immediately
+          // Update completion times immediately
           const times: Record<string, number> = {};
           userSubmissions.forEach(sub => {
             times[sub.assignmentId] = sub.completionTimeMinutes || 0;
@@ -277,34 +290,91 @@ export const AssignmentPage = ({ userRole }: AssignmentPageProps) => {
           if (selectedClass) {
             console.log('Loading submissions for teacher class:', selectedClass.id);
             
-            // Get all submissions for assignments in the selected class
-            const submissionsQuery = query(
-              collection(db, 'submissions'),
-              where('assignmentId', 'in', assignments.map(a => a.id))
-            );
-            const submissionsSnapshot = await getDocs(submissionsQuery);
-            
-            userSubmissions = submissionsSnapshot.docs.map(doc => {
-              const data = doc.data();
-              return {
-                id: doc.id,
-                ...data,
-                submittedAt: data.submittedAt?.toDate ? data.submittedAt.toDate() : new Date(data.submittedAt),
-                feedback: data.feedback ? {
-                  ...data.feedback,
-                  createdAt: data.feedback.createdAt?.toDate ? data.feedback.createdAt.toDate() : new Date(data.feedback.createdAt)
-                } : undefined
-              };
-            }) as Submission[];
-            
-            console.log('Loaded teacher submissions for class:', userSubmissions);
+            // Get all submissions for the selected class by querying students first
+            try {
+              // First get all students in the class
+              const studentsQuery = query(
+                collection(db, 'students'),
+                where('classId', '==', selectedClass.id),
+                where('isActive', '==', true)
+              );
+              const studentsSnapshot = await getDocs(studentsQuery);
+              
+              if (!studentsSnapshot.empty) {
+                // Get all submissions for students in this class
+                // Note: Firestore 'in' queries are limited to 10 values, so we need to handle this properly
+                const studentIds = studentsSnapshot.docs.map(doc => doc.id);
+                console.log('Student IDs in class:', studentIds);
+                
+                if (studentIds.length <= 10) {
+                  // If 10 or fewer students, use 'in' query
+                  const submissionsQuery = query(
+                    collection(db, 'submissions'),
+                    where('studentId', 'in', studentIds)
+                  );
+                  const submissionsSnapshot = await getDocs(submissionsQuery);
+                  
+                  userSubmissions = submissionsSnapshot.docs.map(doc => {
+                    const data = doc.data();
+                    return {
+                      id: doc.id,
+                      ...data,
+                      submittedAt: data.submittedAt?.toDate ? data.submittedAt.toDate() : new Date(data.submittedAt),
+                      feedback: data.feedback ? {
+                        ...data.feedback,
+                        createdAt: data.feedback.createdAt?.toDate ? data.feedback.createdAt.toDate() : new Date(data.feedback.createdAt)
+                      } : undefined
+                    };
+                  }) as Submission[];
+                  
+                  console.log('Loaded teacher submissions for class (in query):', userSubmissions);
+                } else {
+                  // If more than 10 students, we need to batch the queries
+                  console.log('More than 10 students, using batch queries');
+                  const allSubmissions: Submission[] = [];
+                  
+                  // Process students in batches of 10
+                  for (let i = 0; i < studentIds.length; i += 10) {
+                    const batch = studentIds.slice(i, i + 10);
+                    const batchQuery = query(
+                      collection(db, 'submissions'),
+                      where('studentId', 'in', batch)
+                    );
+                    const batchSnapshot = await getDocs(batchQuery);
+                    
+                    const batchSubmissions = batchSnapshot.docs.map(doc => {
+                      const data = doc.data();
+                      return {
+                        id: doc.id,
+                        ...data,
+                        submittedAt: data.submittedAt?.toDate ? data.submittedAt.toDate() : new Date(data.submittedAt),
+                        feedback: data.feedback ? {
+                          ...data.feedback,
+                          createdAt: data.feedback.createdAt?.toDate ? data.feedback.createdAt.toDate() : new Date(data.feedback.createdAt)
+                        } : undefined
+                      };
+                    }) as Submission[];
+                    
+                    allSubmissions.push(...batchSubmissions);
+                  }
+                  
+                  userSubmissions = allSubmissions;
+                  console.log('Loaded teacher submissions for class (batch queries):', userSubmissions);
+                }
+              }
+            } catch (error) {
+              console.error('Error loading teacher submissions:', error);
+            }
           }
         }
         
         setSubmissions(userSubmissions);
+        console.log('Final submissions state set:', userSubmissions);
+        console.log('User role:', userRole);
+        console.log('Selected class:', selectedClass);
         
       } catch (error) {
-        console.error('Error loading user submissions:', error);
+        console.error('Error loading user data:', error);
         // Set empty submissions array on error to prevent undefined issues
         setSubmissions([]);
         if (userRole === 'parent') {
@@ -313,41 +383,18 @@ export const AssignmentPage = ({ userRole }: AssignmentPageProps) => {
       }
     };
 
-    loadUserSubmissions();
-  }, [user, userRole, selectedClass, assignments]); // Added selectedClass and assignments dependencies
+    loadUserData();
+  }, [user, userRole, selectedClass]); // Removed assignments dependency to prevent circular dependency
 
-  // Load student info and study time data for parents
+  // Debug useEffect to monitor submissions changes
   useEffect(() => {
-    const loadStudentData = async () => {
-      if (!user || userRole !== 'parent') return;
-      
-      try {
-        // Get parent's student(s)
-        const studentsQuery = query(
-          collection(db, 'students'),
-          where('parentId', '==', user.uid),
-          where('isActive', '==', true)
-        );
-        const studentsSnapshot = await getDocs(studentsQuery);
-        
-        if (!studentsSnapshot.empty) {
-          const studentDoc = studentsSnapshot.docs[0];
-          const studentData = studentDoc.data();
-          setStudentInfo({
-            id: studentDoc.id,
-            name: studentData.name
-          });
-          
-          // Sync local study time with Firestore
-          await syncStudyTimeWithFirestore();
-        }
-      } catch (error) {
-        console.error('Error loading student data:', error);
-      }
-    };
-
-    loadStudentData();
-  }, [user, userRole]); // Removed submissions dependency
+    console.log('Submissions state changed:', submissions);
+    console.log('Current user role:', userRole);
+    if (userRole === 'teacher' && selectedClass) {
+      console.log('Teacher view - assignments:', assignments);
+      console.log('Teacher view - submissions:', submissions);
+    }
+  }, [submissions, userRole, selectedClass, assignments]);
 
   // Helper function to get submitted assignments count for parents
   const getSubmittedAssignmentsCount = () => {
@@ -363,62 +410,14 @@ export const AssignmentPage = ({ userRole }: AssignmentPageProps) => {
     return submission;
   };
 
-  // Check for existing submissions when assignments load
-  const checkExistingSubmissions = async () => {
-    if (!user || assignments.length === 0) return;
-    
-    try {
-      let userSubmissions: Submission[] = [];
-      
-      if (userRole === 'parent') {
-        // Get all submissions for this parent
-        userSubmissions = await SubmissionService.getParentSubmissions(user.uid);
-        console.log('Checking existing submissions for parent:', userSubmissions);
-      } else if (userRole === 'teacher' && selectedClass) {
-        // Get all submissions for assignments in the selected class
-        const submissionsQuery = query(
-          collection(db, 'submissions'),
-          where('assignmentId', 'in', assignments.map(a => a.id))
-        );
-        const submissionsSnapshot = await getDocs(submissionsQuery);
-        
-        userSubmissions = submissionsSnapshot.docs.map(doc => {
-          const data = doc.data();
-          return {
-            id: doc.id,
-            ...data,
-            submittedAt: data.submittedAt?.toDate ? data.submittedAt.toDate() : new Date(data.submittedAt),
-            feedback: data.feedback ? {
-              ...data.feedback,
-              createdAt: data.feedback.createdAt?.toDate ? data.feedback.createdAt.toDate() : new Date(data.feedback.createdAt)
-            } : undefined
-          };
-        }) as Submission[];
-        
-        console.log('Checking existing submissions for teacher class:', userSubmissions);
-      }
-      
-      // Update submissions state
-      setSubmissions(userSubmissions);
-      
-      // Update completion times for parents
-      if (userRole === 'parent') {
-        const times: Record<string, number> = {};
-        userSubmissions.forEach(sub => {
-          times[sub.assignmentId] = sub.completionTimeMinutes || 0;
-        });
-        setCompletionTimes(times);
-        console.log('Updated completion times from existing submissions:', times);
-      }
-    } catch (error) {
-      console.error('Error checking existing submissions:', error);
-    }
+  // Helper function to get submission count for a specific assignment
+  const getSubmissionCountForAssignment = (assignmentId: string): number => {
+    const count = submissions.filter(sub => sub.assignmentId === assignmentId).length;
+    console.log(`Submission count for assignment ${assignmentId}: ${count}`);
+    console.log('All submissions:', submissions);
+    console.log('Submissions for this assignment:', submissions.filter(sub => sub.assignmentId === assignmentId));
+    return count;
   };
-
-  // Run check for existing submissions when assignments load
-  useEffect(() => {
-    checkExistingSubmissions();
-  }, [assignments, user, userRole]);
 
   // Safe rendering function for feedback
   const renderFeedback = (feedback: any) => {
@@ -427,7 +426,7 @@ export const AssignmentPage = ({ userRole }: AssignmentPageProps) => {
     return (
       <div className="p-3 bg-blue-50 rounded border border-blue-200">
         <div className="flex items-center mb-1">
-          <MessageCircle className="w-4 h-4 text-blue-600 mr-1" />
+          <MessageCircle className="w-4 w-4 text-blue-600 mr-1" />
           <span className="text-sm font-medium text-blue-800">Teacher Feedback</span>
         </div>
         <div className="space-y-2">
@@ -455,42 +454,7 @@ export const AssignmentPage = ({ userRole }: AssignmentPageProps) => {
     );
   };
 
-  // Function to test Firestore access
-  const testFirestoreAccess = async () => {
-    if (!user || userRole !== 'parent') return;
-    
-    try {
-      console.log('Testing Firestore access...');
-      
-      // Try to read all submissions (without where clause)
-      const allSubmissionsQuery = query(collection(db, 'submissions'));
-      const allSubmissionsSnapshot = await getDocs(allSubmissionsQuery);
-      console.log('All submissions snapshot:', allSubmissionsSnapshot);
-      console.log('All submissions empty:', allSubmissionsSnapshot.empty);
-      console.log('All submissions size:', allSubmissionsSnapshot.size);
-      
-      if (!allSubmissionsSnapshot.empty) {
-        allSubmissionsSnapshot.docs.forEach((doc, index) => {
-          const data = doc.data();
-          console.log(`All submission ${index}:`, doc.id, {
-            parentId: data.parentId,
-            studentId: data.studentId,
-            assignmentId: data.assignmentId,
-            status: data.status
-          });
-        });
-      }
-      
-      // Try to read specific submission by ID if we know one
-      if (allSubmissionsSnapshot.size > 0) {
-        const firstDoc = allSubmissionsSnapshot.docs[0];
-        console.log('First submission doc:', firstDoc.id, firstDoc.data());
-      }
-      
-    } catch (error) {
-      console.error('Error testing Firestore access:', error);
-    }
-  };
+
 
   // Function to sync local study time with Firestore
   const syncStudyTimeWithFirestore = async () => {
@@ -862,7 +826,8 @@ export const AssignmentPage = ({ userRole }: AssignmentPageProps) => {
         parentId: user.uid,
         files: uploadedSubmissionFiles,
         completionTimeMinutes: Math.ceil(timeSpent / 60), // Convert seconds to minutes
-        studyTimeToday: 0 // Will be updated by StudyTimeService
+        studyTimeToday: 0, // Will be updated by StudyTimeService
+        status: 'completed' as const // Mark as completed for the parent
       };
 
       // Save submission to Firestore
@@ -890,8 +855,8 @@ export const AssignmentPage = ({ userRole }: AssignmentPageProps) => {
         console.warn('Could not update study time:', studyTimeError);
       }
 
-      // Mark assignment as complete for the student
-      await markAssignmentComplete(assignmentId);
+      // Note: We no longer change assignment status to prevent assignments from disappearing
+      // The assignment remains visible to parents even after submission
 
       // Update local submissions state
       const newSubmission: Submission = {
@@ -901,7 +866,7 @@ export const AssignmentPage = ({ userRole }: AssignmentPageProps) => {
         parentId: user.uid,
         files: uploadedSubmissionFiles,
         submittedAt: new Date(),
-        status: 'submitted', // Changed from 'pending' to 'submitted'
+        status: 'completed' as const, // Mark as completed for the parent
         points: 0,
         completionTimeMinutes: Math.ceil(timeSpent / 60),
         studyTimeToday: 0
@@ -937,8 +902,8 @@ export const AssignmentPage = ({ userRole }: AssignmentPageProps) => {
       setSubmissionNote("");
 
       toast({
-        title: "Assignment submitted successfully!",
-        description: "Your work has been uploaded and submitted to your teacher.",
+        title: "Assignment completed successfully!",
+        description: "Your work has been uploaded and marked as completed.",
       });
 
     } catch (error) {
@@ -953,25 +918,7 @@ export const AssignmentPage = ({ userRole }: AssignmentPageProps) => {
     }
   };
 
-  const completeAssignment = (assignmentId: string) => {
-    // Stop timer if running for this assignment
-    const state = loadStopwatch();
-    if (state.running && state.assignmentId === assignmentId) {
-      stopAndSave();
-    }
 
-    // Trigger completion animation
-    setCompletionAnimation(assignmentId);
-    setTimeout(() => setCompletionAnimation(null), 2000);
-
-    // Update completed assignments count
-    setTodayCompletedAssignments(getTodayCompletedAssignments());
-
-    toast({
-      title: "🎉 Assignment Completed!",
-      description: "Great job! You've completed this assignment.",
-    });
-  };
 
   // Add missing functions
   const openCreate = () => {
@@ -1097,7 +1044,7 @@ export const AssignmentPage = ({ userRole }: AssignmentPageProps) => {
             }
           }
         } else if (user.role === 'parent') {
-          // For parents, get assignments from their child's class
+          // For parents, get assignments from their child's class using the new method
           try {
             // Get parent's student(s) first
             const studentsQuery = query(
@@ -1111,8 +1058,29 @@ export const AssignmentPage = ({ userRole }: AssignmentPageProps) => {
             for (const studentDoc of studentsSnapshot.docs) {
               const studentData = studentDoc.data();
               if (studentData.classId) {
-                const classAssignments = await AssignmentService.getClassAssignmentsWithComments(studentData.classId);
-                assignmentsData.push(...classAssignments);
+                // Use the new method that includes all statuses for parents
+                const classAssignments = await AssignmentService.getClassAssignmentsForParents(studentData.classId);
+                // Add comments to each assignment
+                const assignmentsWithComments = await Promise.all(
+                  classAssignments.map(async (assignment) => {
+                    try {
+                      const comments = await AssignmentService.getAssignmentComments(assignment.id);
+                      return {
+                        ...assignment,
+                        comments,
+                        commentCount: comments.length
+                      };
+                    } catch (error) {
+                      console.error(`Error loading comments for assignment ${assignment.id}:`, error);
+                      return {
+                        ...assignment,
+                        comments: [],
+                        commentCount: 0
+                      };
+                    }
+                  })
+                );
+                assignmentsData.push(...assignmentsWithComments);
               }
             }
           } catch (error) {
@@ -1153,6 +1121,11 @@ export const AssignmentPage = ({ userRole }: AssignmentPageProps) => {
 
   const filteredAssignments = assignments.filter(assignment => {
     if (filterStatus === "all") return true;
+    if (userRole === "parent") {
+      // For parents, show all assignments including completed ones
+      return assignment.status === filterStatus || 
+             (filterStatus === "active" && assignment.status === "completed");
+    }
     return assignment.status === filterStatus;
   });
 
@@ -1293,9 +1266,6 @@ export const AssignmentPage = ({ userRole }: AssignmentPageProps) => {
         }
         
         setSubmissions(userSubmissions);
-        
-        // Also check for existing submissions to ensure persistence
-        await checkExistingSubmissions();
       } catch (error) {
         console.error('Error refreshing submissions:', error);
       }
@@ -1304,33 +1274,12 @@ export const AssignmentPage = ({ userRole }: AssignmentPageProps) => {
     refreshSubmissions();
   };
 
-  // Function to mark assignment as complete for the student
-  const markAssignmentComplete = async (assignmentId: string) => {
-    try {
-      // Update the assignment status to 'completed' in Firestore
-      const assignmentRef = doc(db, 'assignments', assignmentId);
-      await updateDoc(assignmentRef, {
-        status: 'completed',
-        completedAt: new Date()
-      });
 
-      toast({
-        title: "Assignment Completed!",
-        description: "This assignment has been marked as complete for your student.",
-      });
-    } catch (error) {
-      console.error('Error marking assignment complete:', error);
-      toast({
-        title: "Error",
-        description: "Failed to mark assignment as complete. Please try again.",
-        variant: "destructive"
-      });
-    }
-  };
 
   const getStatusColor = (status: string) => {
     switch (status) {
       case "active": return "success";
+      case "completed": return "default";
       case "archived": return "secondary";
       default: return "secondary";
     }
@@ -1339,6 +1288,7 @@ export const AssignmentPage = ({ userRole }: AssignmentPageProps) => {
   const getStatusIcon = (status: string) => {
     switch (status) {
       case "active": return <CheckCircle className="h-4 w-4" />;
+      case "completed": return <CheckCircle className="h-4 w-4" />;
       case "archived": return <BookOpen className="h-4 w-4" />;
       default: return <BookOpen className="h-4 w-4" />;
     }
@@ -1481,6 +1431,9 @@ export const AssignmentPage = ({ userRole }: AssignmentPageProps) => {
             <SelectContent>
               <SelectItem value="all">All Assignments</SelectItem>
               <SelectItem value="active">Active</SelectItem>
+              {userRole === "parent" && (
+                <SelectItem value="completed">Completed</SelectItem>
+              )}
               <SelectItem value="archived">Archived</SelectItem>
             </SelectContent>
           </Select>
@@ -1567,12 +1520,12 @@ export const AssignmentPage = ({ userRole }: AssignmentPageProps) => {
               <div>
                 <p className="text-2xl font-bold">
                   {userRole === "parent" 
-                    ? getSubmittedAssignmentsCount() // Show submitted assignments count for parents
+                    ? getSubmittedAssignmentsCount() // Show completed assignments count for parents
                     : assignments.filter(a => a.status === "active").length // Show active assignments for teachers/admins
                   }
                 </p>
                 <p className="text-sm text-muted-foreground">
-                  {userRole === "parent" ? "Submitted" : "Active"}
+                  {userRole === "parent" ? "Completed" : "Active"}
                 </p>
               </div>
             </div>
@@ -1599,14 +1552,18 @@ export const AssignmentPage = ({ userRole }: AssignmentPageProps) => {
               <Users className="h-8 w-8 text-accent" />
               <div>
                 <p className="text-2xl font-bold">
-                  {assignments.length > 0 ? Math.round((assignments.filter(a => a.status === "active").length / assignments.length) * 100) : 0}%
+                  {assignments.length > 0 ? Math.round((assignments.filter(a => a.status === "active" || (userRole === "parent" && a.status === "completed")).length / assignments.length) * 100) : 0}%
                 </p>
-                <p className="text-sm text-muted-foreground">Active Rate</p>
+                <p className="text-sm text-muted-foreground">
+                  {userRole === "parent" ? "Available Rate" : "Active Rate"}
+                </p>
               </div>
             </div>
           </CardContent>
         </Card>
       </div>
+
+
 
       {/* Assignments List */}
       {assignments.length > 0 ? (
@@ -1626,17 +1583,26 @@ export const AssignmentPage = ({ userRole }: AssignmentPageProps) => {
                       {userRole === "parent" && findSubmissionByAssignment(assignment.id) && (
                         <Badge variant="success" className="flex items-center space-x-1">
                           <CheckCircle className="h-4 w-4" />
-                          <span>Submitted</span>
+                          <span>Completed</span>
                         </Badge>
                       )}
                       {/* Show submissions count for teachers */}
                       {userRole === "teacher" && (
-                        <Badge variant="outline" className="flex items-center space-x-1">
-                          <FileText className="h-4 w-4" />
-                          <span>
-                            {submissions.filter(sub => sub.assignmentId === assignment.id).length} submissions
-                          </span>
-                        </Badge>
+                        <>
+                          <Badge 
+                            variant={getSubmissionCountForAssignment(assignment.id) > 0 ? "default" : "outline"} 
+                            className={`flex items-center space-x-1 ${
+                              getSubmissionCountForAssignment(assignment.id) > 0 
+                                ? 'bg-green-100 text-green-700 border-green-200' 
+                                : 'bg-gray-100 text-gray-500 border-gray-200'
+                            }`}
+                          >
+                            <FileText className="h-4 w-4" />
+                            <span>
+                              {getSubmissionCountForAssignment(assignment.id)} submission{getSubmissionCountForAssignment(assignment.id) !== 1 ? 's' : ''}
+                            </span>
+                          </Badge>
+                        </>
                       )}
                     </div>
                                          <div className="flex items-center space-x-4 text-sm text-muted-foreground">
@@ -1697,205 +1663,192 @@ export const AssignmentPage = ({ userRole }: AssignmentPageProps) => {
                   </div>
                 )}
 
-                {/* Completion Time Display for Submitted Assignments */}
-                {userRole === "parent" && findSubmissionByAssignment(assignment.id) && (
-                  <div className="bg-green-50 border border-green-200 rounded-lg p-3">
-                    <div className="flex items-center gap-2 text-green-700">
-                      <CheckCircle className="h-4 w-4" />
-                      <span className="text-sm font-medium">
-                        Completed in: {findSubmissionByAssignment(assignment.id)?.completionTimeMinutes || 0} minutes
-                      </span>
-                    </div>
-                  </div>
-                )}
+
 
                 {/* Parent Action Buttons */}
                 {userRole === "parent" && (
                   <div className="flex flex-col sm:flex-row gap-3">
-                    <Dialog open={currentAssignmentId === assignment.id && running && !stopwatchMinimized} onOpenChange={(open) => {
-                      if (!open && running && currentAssignmentId === assignment.id) {
-                        // Minimize to floating widget instead of closing
-                        setStopwatchMinimized(true);
-                      }
-                    }}>
-                      <DialogTrigger asChild>
-                        <Button
-                          variant="outline"
-                          onClick={() => {
-                            if (running && currentAssignmentId === assignment.id) {
-                              // If timer is running for this assignment, show the dialog
-                              setStopwatchMinimized(false);
-                            } else {
-                              // Start the timer
-                              startStopwatch(assignment);
-                              setStopwatchMinimized(false);
-                            }
-                          }}
-                          disabled={running && currentAssignmentId !== assignment.id}
-                          className="flex-1"
-                        >
-                          <Play className="h-4 w-4 mr-2" />
-                          {running && currentAssignmentId === assignment.id ? "View Timer" : "Start Assignment"}
-                        </Button>
-                      </DialogTrigger>
-                      <DialogContent className="max-w-md">
-                        <DialogHeader>
-                          <DialogTitle>Working on: {assignment.title}</DialogTitle>
-                        </DialogHeader>
-                        <div className="flex flex-col items-center py-8">
-                          <div className="text-6xl font-mono font-bold mb-6">
-                            {String(Math.floor(elapsedSec / 60)).padStart(2, '0')}:
-                            {String(elapsedSec % 60).padStart(2, '0')}
-                          </div>
-                          
-                          <div className="flex gap-3 mb-4">
-                            <Button onClick={togglePause} variant={running ? "secondary" : "default"}>
-                              {running ? (
-                                <>
-                                  <Pause className="h-4 w-4 mr-2" />
-                                  Pause
-                                </>
-                              ) : (
-                                <>
-                                  <Play className="h-4 w-4 mr-2" />
-                                  Resume
-                                </>
-                              )}
-                            </Button>
-                            <Button variant="outline" onClick={() => setStopwatchMinimized(true)}>
-                              Minimize
-                            </Button>
-                            <Button variant="destructive" onClick={() => stopAndSave(false)}>
-                              <Square className="h-4 w-4 mr-2" />
-                              Done
-                            </Button>
-                          </div>
-                          
-                          <Progress 
-                            value={(elapsedSec / LIMIT_SECONDS) * 100} 
-                            className="w-full mb-2" 
-                          />
-                          <p className="text-xs text-muted-foreground text-center">
-                            Limit: {LIMIT_SECONDS / 60} minutes • Time will be added to your daily total when you stop
-                          </p>
+                    {/* Check if assignment is already completed for this parent */}
+                    {findSubmissionByAssignment(assignment.id) ? (
+                      // Assignment completed - show completion status
+                      <div className="flex-1 p-4 bg-green-50 border border-green-200 rounded-lg">
+                        <div className="flex items-center gap-2 text-green-700">
+                          <CheckCircle className="h-5 w-5" />
+                          <span className="font-medium">Assignment Completed</span>
                         </div>
-                      </DialogContent>
-                    </Dialog>
-                    
-                    <Dialog open={submitDialogOpen === assignment.id} onOpenChange={(open) => {
-                      if (open) {
-                        openSubmitDialog(assignment.id);
-                      } else {
-                        setSubmitDialogOpen(null);
-                      }
-                    }}>
-                      <DialogTrigger asChild>
-                        <Button variant="secondary" className="flex-1">
-                          <Upload className="h-4 w-4 mr-2" />
-                          Submit Assignment
-                        </Button>
-                      </DialogTrigger>
-                      <DialogContent className="max-w-md">
-                        <DialogHeader>
-                          <DialogTitle>Submit: {assignment.title}</DialogTitle>
-                        </DialogHeader>
-                        <div className="space-y-4">
-                          <div>
-                            <Label htmlFor="submission-note">Note (optional)</Label>
-                            <Textarea
-                              id="submission-note"
-                              rows={3}
-                              value={submissionNote}
-                              onChange={(e) => setSubmissionNote(e.target.value)}
-                              placeholder="Add a note for your teacher..."
-                            />
-                          </div>
-                          
-                          <div>
-                            <Label>Upload Files (PDF or Images, max 2MB each, up to 3 files)</Label>
-                            <div 
-                              className="border-2 border-dashed border-muted-foreground/25 rounded-lg p-4 text-center cursor-pointer hover:bg-muted/50 transition"
-                              onClick={() => fileInputRef.current?.click()}
+                        <p className="text-sm text-green-600 mt-1">
+                          Completed on {new Date(findSubmissionByAssignment(assignment.id)?.submittedAt || new Date()).toLocaleDateString()}
+                        </p>
+                      </div>
+                    ) : (
+                      // Assignment not completed - show action buttons
+                      <>
+                        <Dialog open={currentAssignmentId === assignment.id && running && !stopwatchMinimized} onOpenChange={(open) => {
+                          if (!open && running && currentAssignmentId === assignment.id) {
+                            // Minimize to floating widget instead of closing
+                            setStopwatchMinimized(true);
+                          }
+                        }}>
+                          <DialogTrigger asChild>
+                            <Button
+                              variant="outline"
+                              onClick={() => {
+                                if (running && currentAssignmentId === assignment.id) {
+                                  // If timer is running for this assignment, show the dialog
+                                  setStopwatchMinimized(false);
+                                } else {
+                                  // Start the timer
+                                  startStopwatch(assignment);
+                                  setStopwatchMinimized(false);
+                                }
+                              }}
+                              disabled={running && currentAssignmentId !== assignment.id}
+                              className="flex-1"
                             >
-                              <Upload className="h-6 w-6 text-muted-foreground mx-auto mb-2" />
-                              <p className="text-sm text-muted-foreground">
-                                Click to upload files
-                              </p>
-                              <input
-                                ref={fileInputRef}
-                                type="file"
-                                multiple
-                                accept=".pdf,.jpg,.jpeg,.png"
-                                onChange={handleFileChange}
-                                className="hidden"
+                              <Play className="h-4 w-4 mr-2" />
+                              {running && currentAssignmentId === assignment.id ? "View Timer" : "Start Assignment"}
+                            </Button>
+                          </DialogTrigger>
+                          <DialogContent className="max-w-md">
+                            <DialogHeader>
+                              <DialogTitle>Working on: {assignment.title}</DialogTitle>
+                            </DialogHeader>
+                            <div className="flex flex-col items-center py-8">
+                              <div className="text-6xl font-mono font-bold mb-6">
+                                {String(Math.floor(elapsedSec / 60)).padStart(2, '0')}:
+                                {String(elapsedSec % 60).padStart(2, '0')}
+                              </div>
+                              
+                              <div className="flex gap-3 mb-4">
+                                <Button onClick={togglePause} variant={running ? "secondary" : "default"}>
+                                  {running ? (
+                                    <>
+                                      <Pause className="h-4 w-4 mr-2" />
+                                      Pause
+                                    </>
+                                  ) : (
+                                    <>
+                                      <Play className="h-4 w-4 mr-2" />
+                                      Resume
+                                    </>
+                                  )}
+                                </Button>
+                                <Button variant="outline" onClick={() => setStopwatchMinimized(true)}>
+                                  Minimize
+                                </Button>
+                                <Button variant="destructive" onClick={() => stopAndSave(false)}>
+                                  <Square className="h-4 w-4 mr-2" />
+                                  Done
+                                </Button>
+                              </div>
+                              
+                              <Progress 
+                                value={(elapsedSec / LIMIT_SECONDS) * 100} 
+                                className="w-full mb-2" 
                               />
+                              <p className="text-xs text-muted-foreground text-center">
+                                Limit: {LIMIT_SECONDS / 60} minutes • Time will be added to your daily total when you stop
+                              </p>
                             </div>
-                          </div>
-
-                          {/* Uploaded Files */}
-                          {uploadedFiles.length > 0 && (
-                            <div className="space-y-2">
-                              <Label>Uploaded Files:</Label>
-                              {uploadedFiles.map((file) => (
-                                <div key={file.id} className="flex items-center justify-between bg-muted rounded p-2">
-                                  <div className="flex items-center gap-2">
-                                    <File className="h-4 w-4" />
-                                    <div>
-                                      <p className="text-sm font-medium">{file.name}</p>
-                                      <p className="text-xs text-muted-foreground">{bytesToHuman(file.size)}</p>
-                                    </div>
-                                  </div>
-                                  <Button
-                                    size="sm"
-                                    variant="ghost"
-                                    onClick={() => removeFile(file.id)}
-                                  >
-                                    <X className="h-4 w-4" />
-                                  </Button>
+                          </DialogContent>
+                        </Dialog>
+                        
+                        <Dialog open={submitDialogOpen === assignment.id} onOpenChange={(open) => {
+                          if (open) {
+                            openSubmitDialog(assignment.id);
+                          } else {
+                            setSubmitDialogOpen(null);
+                          }
+                        }}>
+                          <DialogTrigger asChild>
+                            <Button variant="secondary" className="flex-1">
+                              <Upload className="h-4 w-4 mr-2" />
+                              Submit Assignment
+                            </Button>
+                          </DialogTrigger>
+                          <DialogContent className="max-w-md">
+                            <DialogHeader>
+                              <DialogTitle>Submit: {assignment.title}</DialogTitle>
+                            </DialogHeader>
+                            <div className="space-y-4">
+                              <div>
+                                <Label htmlFor="submission-note">Note (optional)</Label>
+                                <Textarea
+                                  id="submission-note"
+                                  rows={3}
+                                  value={submissionNote}
+                                  onChange={(e) => setSubmissionNote(e.target.value)}
+                                  placeholder="Add a note for your teacher..."
+                                />
+                              </div>
+                              
+                              <div>
+                                <Label>Upload Files (PDF or Images, max 2MB each, up to 3 files)</Label>
+                                <div 
+                                  className="border-2 border-dashed border-muted-foreground/25 rounded-lg p-4 text-center cursor-pointer hover:bg-muted/50 transition"
+                                  onClick={() => fileInputRef.current?.click()}
+                                >
+                                  <Upload className="h-6 w-6 text-muted-foreground mx-auto mb-2" />
+                                  <p className="text-sm text-muted-foreground">
+                                    Click to upload files
+                                  </p>
+                                  <input
+                                    ref={fileInputRef}
+                                    type="file"
+                                    multiple
+                                    accept=".pdf,.jpg,.jpeg,.png"
+                                    onChange={handleFileChange}
+                                    className="hidden"
+                                  />
                                 </div>
-                              ))}
-                            </div>
-                          )}
+                              </div>
 
-                          <div className="flex gap-2">
-                            <Button 
-                              variant="outline" 
-                              onClick={() => setSubmitDialogOpen(null)}
-                              className="flex-1"
-                            >
-                              Cancel
-                            </Button>
-                            <Button 
-                              onClick={() => submitAssignment(assignment.id)}
-                              disabled={uploadedFiles.length === 0 || isUploading}
-                              className="flex-1"
-                            >
-                              {isUploading ? "Uploading..." : "Submit"}
-                            </Button>
-                          </div>
-                        </div>
-                      </DialogContent>
-                    </Dialog>
-                    
-                    <div className="relative">
-                      <Button
-                        variant="default"
-                        onClick={() => completeAssignment(assignment.id)}
-                        className="flex-1 bg-green-600 hover:bg-green-700"
-                      >
-                        <CheckCircle className="h-4 w-4 mr-2" />
-                        Complete Assignment
-                      </Button>
-                      
-                      {/* Completion Animation */}
-                      {completionAnimation === assignment.id && (
-                        <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-                          <div className="animate-ping">
-                            <Star className="h-8 w-8 text-yellow-500 fill-yellow-500" />
-                          </div>
-                        </div>
-                      )}
-                    </div>
+                              {/* Uploaded Files */}
+                              {uploadedFiles.length > 0 && (
+                                <div className="space-y-2">
+                                  <Label>Uploaded Files:</Label>
+                                  {uploadedFiles.map((file) => (
+                                    <div key={file.id} className="flex items-center justify-between bg-muted rounded p-2">
+                                      <div className="flex items-center gap-2">
+                                        <File className="h-4 w-4" />
+                                        <div>
+                                          <p className="text-sm font-medium">{file.name}</p>
+                                          <p className="text-xs text-muted-foreground">{bytesToHuman(file.size)}</p>
+                                        </div>
+                                      </div>
+                                      <Button
+                                        size="sm"
+                                        variant="ghost"
+                                        onClick={() => removeFile(file.id)}
+                                      >
+                                        <X className="h-4 w-4" />
+                                      </Button>
+                                    </div>
+                                  ))}
+                                </div>
+                              )}
+
+                              <div className="flex gap-2">
+                                <Button 
+                                  variant="outline" 
+                                  onClick={() => setSubmitDialogOpen(null)}
+                                  className="flex-1"
+                                >
+                                  Cancel
+                                </Button>
+                                <Button 
+                                  onClick={() => submitAssignment(assignment.id)}
+                                  disabled={uploadedFiles.length === 0 || isUploading}
+                                  className="flex-1"
+                                >
+                                  {isUploading ? "Uploading..." : "Submit"}
+                                </Button>
+                              </div>
+                            </div>
+                          </DialogContent>
+                        </Dialog>
+                      </>
+                    )}
                   </div>
                 )}
 
@@ -1905,16 +1858,19 @@ export const AssignmentPage = ({ userRole }: AssignmentPageProps) => {
                     <div className="flex items-center justify-between mb-3">
                       <h4 className="font-medium text-green-800 flex items-center gap-2">
                         <CheckCircle className="h-4 w-4" />
-                        Your Submission
+                        Your Completed Assignment
                       </h4>
                       <Badge variant="secondary" className="text-green-700 bg-green-100">
-                        {findSubmissionByAssignment(assignment.id)?.status}
+                        Completed
                       </Badge>
                     </div>
                     
                     <div className="space-y-2">
                       <p className="text-sm text-green-700">
-                        Submitted: {new Date(findSubmissionByAssignment(assignment.id)?.submittedAt || new Date()).toLocaleString()}
+                        Completed: {new Date(findSubmissionByAssignment(assignment.id)?.submittedAt || new Date()).toLocaleString()}
+                      </p>
+                      <p className="text-sm text-green-600">
+                        Time spent: {findSubmissionByAssignment(assignment.id)?.completionTimeMinutes || 0} minutes
                       </p>
                       
                       {findSubmissionByAssignment(assignment.id)?.files.length! > 0 && (
