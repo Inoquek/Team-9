@@ -184,3 +184,32 @@ export class StudyTimeService {
     });
   }
 }
+
+export async function getWeeklyEngagementForStudent(studentId: string) {
+  // expects documents like: { studentId, minutes, date }
+  const q = query(collection(db, "studyTime"), where("studentId", "==", studentId));
+  const snap = await getDocs(q);
+
+  // ISO week calc
+  const weekNumber = (d: Date) => {
+    const a = new Date(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate()));
+    const dayNum = a.getUTCDay() || 7;
+    a.setUTCDate(a.getUTCDate() + 4 - dayNum);
+    const yearStart = new Date(Date.UTC(a.getUTCFullYear(), 0, 1));
+    return Math.ceil((((a as any) - (yearStart as any)) / 86400000 + 1) / 7);
+  };
+
+  const cur = new Date();
+  const curYear = cur.getUTCFullYear();
+  const curWeek = weekNumber(cur);
+
+  const minutes = snap.docs.reduce((sum, d) => {
+    const v = d.data() as any;
+    const dt = v.date?.toDate ? v.date.toDate() : new Date(v.date || Date.now());
+    return (dt.getUTCFullYear() === curYear && weekNumber(dt) === curWeek)
+      ? sum + (v.minutes || 0)
+      : sum;
+  }, 0);
+
+  return { minutes, recommendedMinutes: 180 }; // 3h default recommendation
+}

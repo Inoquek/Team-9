@@ -1,29 +1,33 @@
-import { useState } from "react";
+import { useState, useCallback } from "react";
 import { LoginPage } from "@/components/LoginPage";
 import { ParentDashboard } from "@/components/ParentDashboard";
 import { TeacherDashboard } from "@/components/TeacherDashboard";
 import { AdminDashboard } from "@/components/AdminDashboard";
 import { AssignmentPage } from "@/components/AssignmentPage";
 import { AnnouncementPage } from "@/components/AnnouncementPage";
+import GardenGame from "@/components/GardenGame";
+import { ParentGarden } from "@/components/ParentGarden";
+import { ForumPage } from "@/components/ForumPage"; // 添加Forum导入
 import { AppSidebar, TopBar } from "@/components/Navigation";
 import { SidebarProvider } from "@/components/ui/sidebar";
 import { useAuth } from "@/contexts/AuthContext";
 import { TeacherClassProvider } from "@/contexts/TeacherClassContext";
+import { Metrics } from "@/components/Metrics";
 
-type CurrentPage = "dashboard" | "assignments" | "announcements";
+type CurrentPage = "dashboard" | "assignments" | "announcements" | "metrics" | "garden" | "parentGarden" | "forum"; // 添加forum
 
 const Index = () => {
   const { user, loading } = useAuth();
   const [currentPage, setCurrentPage] = useState<CurrentPage>("dashboard");
   const [badgeCounts, setBadgeCounts] = useState({ assignments: 0, announcements: 0 });
 
-  const handleNavigate = (page: CurrentPage) => {
+  const handleNavigate = useCallback((page: CurrentPage) => {
     setCurrentPage(page);
-  };
+  }, []);
 
-  const handleBadgeCountsUpdate = (counts: { assignments: number; announcements: number }) => {
+  const handleBadgeCountsUpdate = useCallback((counts: { assignments: number; announcements: number }) => {
     setBadgeCounts(counts);
-  };
+  }, []);
 
   // Show loading spinner while checking auth
   if (loading) {
@@ -78,7 +82,21 @@ const Index = () => {
                 {currentPage === "announcements" && (
                   <AnnouncementPage userRole={user.role} />
                 )}
-              </div>
+                
+              {/* 添加Forum页面 */}
+              {currentPage === "forum" && (
+                <ForumPage 
+                  userRole={user.role} 
+                  currentUserName={user.displayName}
+                />
+              )}
+
+                {currentPage === "metrics" && <Metrics />}
+
+                {currentPage === "garden" && <GardenGame />}
+
+                {currentPage === "parentGarden" && <ParentGarden />}
+            </div>
             </main>
           </div>
         </div>

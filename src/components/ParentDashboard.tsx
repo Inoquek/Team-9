@@ -17,6 +17,7 @@ import {
   MessageCircle,
   File,
   Download,
+  Sprout,
 } from "lucide-react";
 import {
   ResponsiveContainer,
@@ -235,7 +236,7 @@ function computeStreak(rows: DayRow[], metric: keyof DayRow, goal: number): Set<
 }
 
 interface ParentDashboardProps {
-  onNavigate: (page: "assignments" | "announcements") => void;
+  onNavigate: (page: "assignments" | "announcements" | "garden" | "parentGarden") => void;
   onBadgeCountsUpdate: (counts: { assignments: number; announcements: number }) => void;
 }
 
@@ -762,6 +763,34 @@ export const ParentDashboard = ({ onNavigate, onBadgeCountsUpdate }: ParentDashb
               </div>
             ))
           )}
+        </CardContent>
+      </Card>
+
+      {/* Garden Section */}
+      <Card>
+        <CardHeader className="flex flex-row items-center justify-between">
+          <CardTitle className="flex items-center space-x-2">
+            <Sprout className="h-5 w-5 text-emerald-600" />
+            <span>My Children's Garden</span>
+          </CardTitle>
+          <Button variant="outline" size="sm" onClick={() => onNavigate("parentGarden")}>
+            View Garden
+          </Button>
+        </CardHeader>
+        <CardContent>
+          <div className="text-center py-6">
+            <div className="w-16 h-16 mx-auto mb-4 bg-emerald-100 rounded-full flex items-center justify-center">
+              <Sprout className="h-8 w-8 text-emerald-600" />
+            </div>
+            <h3 className="text-lg font-medium text-foreground mb-2">Watch Your Children Grow!</h3>
+            <p className="text-sm text-muted-foreground mb-4">
+              See your children's learning progress and how their class is performing together.
+            </p>
+            <Button onClick={() => onNavigate("parentGarden")} className="bg-emerald-600 hover:bg-emerald-700">
+              <Sprout className="h-4 w-4 mr-2" />
+              Explore Garden
+            </Button>
+          </div>
         </CardContent>
       </Card>
     </div>

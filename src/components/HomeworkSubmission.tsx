@@ -51,10 +51,12 @@ export const HomeworkSubmission = ({
         assignmentId: assignment.id,
         studentId,
         parentId,
+        notes, // 添加 notes 字段
+        submittedAt: new Date(), // 添加提交时间
         files: uploadedFiles.map(file => ({
-          id: Date.now().toString(),
-          type: file.type.startsWith('image/') ? 'image' : 
-                file.type.startsWith('video/') ? 'video' : 'audio',
+          id: Date.now().toString() + Math.random().toString(36).substr(2, 9), // 确保唯一ID
+          type: file.type.startsWith('image/') ? 'image' as const : 
+                file.type.startsWith('video/') ? 'video' as const : 'audio' as const,
           url: file.url,
           filename: file.filename,
           size: 0, // This would need to be calculated from the original file

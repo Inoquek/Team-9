@@ -38,6 +38,7 @@ export interface Assignment {
   id: string;
   title: string;
   description: string;
+  category:string;
   type: 'alphabet-time' | 'vocabulary-time' | 'sight-words-time' | 'reading-time' | 'post-programme-test';
   dueDate: Date;
   teacherId: string;
@@ -90,6 +91,49 @@ export interface Portfolio {
   badges: Badge[];
   createdAt: Date;
   updatedAt: Date;
+}
+
+// NEW: Garden and Class Summary types
+export interface ClassSummary {
+  id: string;
+  classId: string;
+  className: string;
+  teacherId: string;
+  lastUpdated: Date;
+  
+  // Aggregated statistics (safe for parents to see)
+  totalStudents: number;
+  averageCompletionRate: number;
+  totalAssignments: number;
+  completedAssignments: number;
+  
+  // Performance distribution (anonymized)
+  performanceDistribution: {
+    blooming: number;      // 90-100%
+    sprout: number;        // 60-89%
+    seedling: number;      // 1-59%
+    seed: number;          // 0%
+  };
+  
+  // Recent activity (last 7 days)
+  recentActivity: {
+    newSubmissions: number;
+    completedAssignments: number;
+    averageStudyTime: number;
+  };
+}
+
+export interface GardenStudentData {
+  id: string;
+  name: string;
+  completionRate: number;
+  stage: 'seed' | 'seedling' | 'sprout' | 'blooming';
+  totalAssignments: number;
+  completedAssignments: number;
+  totalPoints: number;
+  earnedPoints: number;
+  lastActivity: Date;
+  isOwnChild?: boolean; // For parent view
 }
 
 export interface CategoryProgress {

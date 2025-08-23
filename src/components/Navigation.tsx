@@ -1,6 +1,7 @@
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { BookOpen, Home, Bell, LogOut, User, Heart, Star } from "lucide-react";
+import { BookOpen, Home, Bell, LogOut, User, Heart, Star, TrendingUp, Sprout, MessageSquare } from "lucide-react"; // 添加MessageSquare
+
 import { useAuth } from "@/contexts/AuthContext";
 import {
   Sidebar,
@@ -20,13 +21,10 @@ import { User as UserType } from "@/lib/types";
 
 interface AppSidebarProps {
   user: UserType;
-  currentPage: "dashboard" | "assignments" | "announcements";
-  onNavigate: (page: "dashboard" | "assignments" | "announcements") => void;
-  badgeCounts?: {
-    assignments: number;
-    announcements: number;
-  };
+  currentPage: "dashboard" | "assignments" | "announcements" | "metrics" | "garden" | "parentGarden" | "forum"; // 添加forum
+  onNavigate: (page: "dashboard" | "assignments" | "announcements" | "metrics" | "garden" | "parentGarden" | "forum") => void; // 添加forum
 }
+
 
 export const AppSidebar = ({ user, currentPage, onNavigate, badgeCounts }: AppSidebarProps) => {
   const { state } = useSidebar();
@@ -51,6 +49,34 @@ export const AppSidebar = ({ user, currentPage, onNavigate, badgeCounts }: AppSi
       page: "announcements" as const, 
       icon: Bell,
       badge: user.role === "parent" && badgeCounts ? badgeCounts.announcements : null,
+    },
+    // + NEW: Metrics (visible to parents & teachers)
+    {
+      title: "Metrics",
+      page: "metrics" as const,
+      icon: TrendingUp,
+      badge: null,
+    },
+    // Garden Game (teacher only)
+    ...(user.role === "teacher" ? [{
+      title: "Garden Game",
+      page: "garden" as const,
+      icon: Sprout,
+      badge: null,
+    }] : []),
+    // Parent Garden (parent only)
+    ...(user.role === "parent" ? [{
+      title: "My Garden",
+      page: "parentGarden" as const,
+      icon: Sprout,
+      badge: null,
+    }] : []),
+    // 添加Forum选项
+    {
+      title: "Forum",
+      page: "forum" as const,
+      icon: MessageSquare,
+      badge: null,
     },
   ];
 
