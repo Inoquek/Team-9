@@ -482,7 +482,7 @@ export const AssignmentCreation: React.FC<AssignmentCreationProps> = ({
           <Button type="button" variant="outline" onClick={onCancel}>
             Cancel
           </Button>
-          <Button type="submit" disabled={isCreating}>
+          <Button type="submit" disabled={isCreating} className="bg-green-600 hover:bg-green-700 text-white">
             {isCreating ? "Creating..." : "Create Assignment"}
           </Button>
         </div>

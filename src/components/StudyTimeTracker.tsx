@@ -212,16 +212,16 @@ export const StudyTimeTracker: React.FC<StudyTimeTrackerProps> = ({
             <span className="font-mono">{formatTime(elapsedSeconds)}</span>
             <div className="flex gap-1">
               {!isRunning ? (
-                <Button size="sm" onClick={startTimer} disabled={elapsedSeconds >= LIMIT_MINUTES * 60}>
-                  <Play className="h-3 w-3" />
+                <Button size="sm" onClick={startTimer} disabled={elapsedSeconds >= LIMIT_MINUTES * 60} className="bg-green-600 hover:bg-green-700 text-white">
+                  Start
                 </Button>
               ) : isPaused ? (
-                <Button size="sm" onClick={resumeTimer}>
-                  <Play className="h-3 w-3" />
+                <Button size="sm" onClick={resumeTimer} className="bg-green-600 hover:bg-green-700 text-white">
+                  Resume
                 </Button>
               ) : (
-                <Button size="sm" onClick={pauseTimer}>
-                  <Pause className="h-3 w-3" />
+                <Button size="sm" onClick={pauseTimer} className="bg-green-600 hover:bg-green-700 text-white">
+                  Pause
                 </Button>
               )}
               <Button size="sm" variant="outline" onClick={stopTimer}>
@@ -279,12 +279,12 @@ export const StudyTimeTracker: React.FC<StudyTimeTrackerProps> = ({
                 Start
               </Button>
             ) : isPaused ? (
-              <Button onClick={resumeTimer} className="flex-1">
+              <Button onClick={resumeTimer} className="flex-1 bg-green-600 hover:bg-green-700 text-white">
                 <Play className="h-4 w-4 mr-2" />
                 Resume
               </Button>
             ) : (
-              <Button onClick={pauseTimer} className="flex-1">
+              <Button onClick={pauseTimer} className="flex-1 bg-green-600 hover:bg-green-700 text-white">
                 <Pause className="h-4 w-4 mr-2" />
                 Pause
               </Button>

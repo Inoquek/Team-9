@@ -95,14 +95,17 @@ export const AppSidebar = ({ user, currentPage, onNavigate }: AppSidebarProps) =
       {/* Header with Logo */}
       <SidebarHeader className="border-b border-border p-3 sm:p-4">
         <div className="flex items-center space-x-2 sm:space-x-3">
-          <div className="relative flex-shrink-0">
-            <BookOpen className="h-6 w-6 sm:h-8 sm:w-8 text-primary" />
-            <Heart className="h-2 w-2 sm:h-3 sm:w-3 text-destructive absolute -top-0.5 -right-0.5" />
+          <div className="flex items-center space-x-1">
+            <div className="relative flex-shrink-0">
+              <Sprout className="h-6 w-6 sm:h-8 sm:w-8 text-green-600" />
+              <Heart className="h-2 w-2 sm:h-3 sm:w-3 text-green-500 absolute -top-0.5 -right-0.5" />
+            </div>
+            <Star className="h-4 w-4 sm:h-5 sm:w-5 text-green-500 animate-pulse" />
           </div>
           {!isCollapsed && (
             <div className="min-w-0">
-              <h1 className="text-base sm:text-lg font-bold bg-gradient-to-r from-primary to-accent bg-clip-text text-transparent truncate">
-                KindyReach
+              <h1 className="text-base sm:text-lg font-bold bg-gradient-to-r from-green-600 to-green-800 bg-clip-text text-transparent truncate">
+                Grow
               </h1>
               <p className="text-xs text-muted-foreground hidden sm:block">Learning Platform</p>
             </div>

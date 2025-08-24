@@ -579,8 +579,16 @@ export const ParentDashboard = ({ onNavigate }: ParentDashboardProps) => {
           </CardTitle>
           <div className="flex flex-wrap items-center gap-2">
             <div className="flex items-center gap-2">
-              <Button variant={metric === "minutes" ? "default" : "outline"} size="sm" onClick={() => setMetric("minutes")} className="h-8 text-xs">Minutes</Button>
-              <Button variant={metric === "tasks" ? "default" : "outline"} size="sm" onClick={() => setMetric("tasks")} className="h-8 text-xs">Tasks</Button>
+              <Button variant={metric === "minutes" ? "default" : "outline"} size="sm" onClick={() => setMetric("minutes")} className={`h-8 text-xs ${
+                  metric === "minutes" 
+                    ? "bg-green-600 hover:bg-green-700 text-white" 
+                    : "border-green-300 text-green-700 hover:bg-green-50"
+                }`}>Minutes</Button>
+                <Button variant={metric === "tasks" ? "default" : "outline"} size="sm" onClick={() => setMetric("tasks")} className={`h-8 text-xs ${
+                  metric === "tasks" 
+                    ? "bg-green-600 hover:bg-green-700 text-white" 
+                    : "border-green-300 text-green-700 hover:bg-green-50"
+                }`}>Tasks</Button>
             </div>
             <div className="flex items-center gap-2">
               <span className="text-xs sm:text-sm text-muted-foreground">Goal</span>
@@ -594,7 +602,7 @@ export const ParentDashboard = ({ onNavigate }: ParentDashboardProps) => {
                 className="h-8 w-16 sm:w-20 text-xs"
               />
             </div>
-            <Button variant="outline" size="sm" onClick={addMoreData} className="h-8 text-xs">Add more data</Button>
+            <Button variant="outline" size="sm" onClick={addMoreData} className="h-8 text-xs border-green-300 text-green-700 hover:bg-green-50">Add more data</Button>
           </div>
         </CardHeader>
         <CardContent className="pt-0 p-3 sm:p-4">
@@ -678,8 +686,8 @@ export const ParentDashboard = ({ onNavigate }: ParentDashboardProps) => {
             <BookOpen className="h-5 w-5 text-primary" />
             <span>Recent Assignments</span>
           </CardTitle>
-          <Button variant="outline" size="sm" onClick={() => onNavigate("assignments")} className="h-8 text-xs">
-            View All
+          <Button variant="outline" size="sm" onClick={() => onNavigate("assignments")} className="h-8 text-xs border-green-300 text-green-700 hover:bg-green-50">
+            View All Assignments
           </Button>
         </CardHeader>
         <CardContent className="space-y-2 sm:space-y-3 p-3 sm:p-4">
@@ -718,8 +726,8 @@ export const ParentDashboard = ({ onNavigate }: ParentDashboardProps) => {
             <Bell className="h-5 w-5 text-warning" />
             <span>Recent Announcements</span>
           </CardTitle>
-          <Button variant="outline" size="sm" onClick={() => onNavigate("announcements")} className="h-8 text-xs">
-            View All
+          <Button variant="outline" size="sm" onClick={() => onNavigate("announcements")} className="h-8 text-xs border-green-300 text-green-700 hover:bg-green-50">
+            View All Announcements
           </Button>
         </CardHeader>
         <CardContent className="space-y-2 sm:space-y-3 p-3 sm:p-4">
@@ -768,8 +776,8 @@ export const ParentDashboard = ({ onNavigate }: ParentDashboardProps) => {
             <Sprout className="h-5 w-5 text-emerald-600" />
             <span>My Children's Garden</span>
           </CardTitle>
-          <Button variant="outline" size="sm" onClick={() => onNavigate("parentGarden")} className="h-8 text-xs">
-            View Garden
+          <Button variant="outline" size="sm" onClick={() => onNavigate("parentGarden")} className="h-8 text-xs border-green-300 text-green-700 hover:bg-green-50">
+            View My Garden
           </Button>
         </CardHeader>
         <CardContent className="p-3 sm:p-4">
@@ -781,9 +789,8 @@ export const ParentDashboard = ({ onNavigate }: ParentDashboardProps) => {
             <p className="text-xs sm:text-sm text-muted-foreground mb-3 sm:mb-4">
               See your children's learning progress and how their class is performing together.
             </p>
-            <Button onClick={() => onNavigate("parentGarden")} className="bg-emerald-600 hover:bg-emerald-700 h-10 text-sm">
-              <Sprout className="h-4 w-4 mr-2" />
-              Explore Garden
+            <Button onClick={() => onNavigate("parentGarden")} className="bg-green-600 hover:bg-green-700 h-10 text-sm text-white">
+              🌱 Visit My Garden
             </Button>
           </div>
         </CardContent>

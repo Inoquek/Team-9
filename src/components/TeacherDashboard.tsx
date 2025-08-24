@@ -260,7 +260,11 @@ export const TeacherDashboard = ({ onNavigate }: TeacherDashboardProps) => {
                 <Button
                   key={cls.id}
                   variant={selectedClass?.id === cls.id ? "default" : "ghost"}
-                  className="w-full justify-between h-auto py-3 px-3"
+                  className={`w-full justify-between h-auto py-3 px-3 ${
+                    selectedClass?.id === cls.id 
+                      ? "bg-green-600 hover:bg-green-700 text-white" 
+                      : "hover:bg-green-50"
+                  }`}
                   onClick={() => setSelectedClass(cls)}
                 >
                   <div className="text-left min-w-0 flex-1">
@@ -319,7 +323,7 @@ export const TeacherDashboard = ({ onNavigate }: TeacherDashboardProps) => {
         {selectedClass && currentView === 'dashboard' && (
           <div className="flex flex-wrap gap-2 sm:gap-3">
             <Button 
-              className="flex items-center space-x-2 h-10 sm:h-10"
+              className="flex items-center space-x-2 h-10 sm:h-10 bg-green-600 hover:bg-green-700 text-white"
               onClick={() => setCurrentView('createAssignment')}
             >
               <Plus className="h-4 w-4" />
@@ -328,7 +332,7 @@ export const TeacherDashboard = ({ onNavigate }: TeacherDashboardProps) => {
 
             <Button 
               variant="outline" 
-              className="flex items-center space-x-2 h-10 sm:h-10"
+              className="flex items-center space-x-2 h-10 sm:h-10 border-green-300 text-green-700 hover:bg-green-50"
               onClick={() => setCurrentView('createAnnouncement')}
             >
               <Bell className="h-4 w-4" />

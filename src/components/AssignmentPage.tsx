@@ -1949,18 +1949,10 @@ export const AssignmentPage = ({ userRole }: AssignmentPageProps) => {
                               </div>
                               
                               <div className="flex flex-col sm:flex-row gap-2 sm:gap-3 mb-4 w-full">
-                                <Button onClick={togglePause} variant={running ? "secondary" : "default"} className="w-full sm:w-auto touch-button">
-                                  {running ? (
-                                    <>
-                                      <Pause className="h-4 w-4 mr-2" />
-                                      Pause
-                                    </>
-                                  ) : (
-                                    <>
-                                      <Play className="h-4 w-4 mr-2" />
-                                      Resume
-                                    </>
-                                  )}
+                                <Button onClick={togglePause} variant={running ? "secondary" : "default"} className={`w-full sm:w-auto touch-button ${
+                                  !running ? "bg-green-600 hover:bg-green-700 text-white" : ""
+                                }`}>
+                                  {running ? "Pause" : "Start"} Timer
                                 </Button>
                                 <Button variant="outline" onClick={() => setStopwatchMinimized(true)} className="w-full sm:w-auto touch-button">
                                   Minimize

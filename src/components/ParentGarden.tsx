@@ -92,7 +92,7 @@ export const ParentGarden = () => {
             variant="outline"
             size="sm"
             onClick={() => window.location.href = '/assignments'}
-            className="flex items-center gap-2 bg-blue-50 border-blue-200 text-blue-700 hover:bg-blue-100 h-10"
+            className="flex items-center gap-2 border-green-300 text-green-700 hover:bg-green-50 h-10"
           >
             <BookOpen className="h-4 w-4" />
             View Assignments
@@ -101,7 +101,11 @@ export const ParentGarden = () => {
             variant={showWholeGarden ? "default" : "outline"}
             size="sm"
             onClick={() => setShowWholeGarden(!showWholeGarden)}
-            className="flex items-center gap-2 h-10"
+            className={`flex items-center gap-2 h-10 ${
+              showWholeGarden 
+                ? "bg-green-600 hover:bg-green-700 text-white" 
+                : "border-green-300 text-green-700 hover:bg-green-50"
+            }`}
           >
             {showWholeGarden ? (
               <>
@@ -415,7 +419,7 @@ export const ParentGarden = () => {
                               variant="outline"
                               size="sm"
                               onClick={() => window.location.href = '/assignments'}
-                              className="flex items-center gap-2 mx-auto bg-orange-50 border-orange-200 text-orange-700 hover:bg-orange-100 h-10"
+                              className="flex items-center gap-2 mx-auto border-green-300 text-green-700 hover:bg-green-50 h-10"
                             >
                               <BookOpen className="h-4 w-4" />
                               <span className="hidden sm:inline">Complete {incompleteAssignments} Assignment{incompleteAssignments !== 1 ? 's' : ''}</span>

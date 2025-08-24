@@ -1245,7 +1245,7 @@ const TeacherSection: React.FC<{ classId: string }> = ({ classId }) => {
                                     </span>
                                   </td>
                                 <td className="py-2 pr-4">
-                                  <Button size="sm" onClick={()=>setSelected({ id:r.studentId, name:r.studentName, classId })}>View details</Button>
+                                  <Button size="sm" onClick={()=>setSelected({ id:r.studentId, name:r.studentName, classId })} className="bg-green-600 hover:bg-green-700 text-white">View details</Button>
                                 </td>
                               </tr>
                               );

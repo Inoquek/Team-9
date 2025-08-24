@@ -9,7 +9,7 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import {
   Plus, Pin, Edit, Trash2, MessageCircle, ArrowBigUp, Reply as ReplyIcon,
-  Search as SearchIcon, EyeOff
+  Search as SearchIcon, EyeOff, MessageSquare
 } from "lucide-react";
 import { User } from "@/lib/types";
 import { ForumService, ForumPost, ForumComment, ForumTag } from "@/lib/services/forum";
@@ -516,8 +516,9 @@ export const ForumPage = ({ userRole, currentUserName }: ForumPageProps) => {
 
           <Dialog open={isPostDialogOpen} onOpenChange={(o) => { setPostDialogOpen(o); if (!o) setEditingId(null); }}>
             <DialogTrigger asChild>
-              <Button onClick={openCreate} className="flex items-center gap-2 w-full sm:w-auto h-10">
-                <Plus className="h-4 w-4" /> New Post
+              <Button onClick={openCreate} className="bg-green-600 hover:bg-green-700 text-white flex items-center gap-2 w-full sm:w-auto h-10">
+                <MessageSquare className="h-4 w-4" />
+                New Post
               </Button>
             </DialogTrigger>
             <DialogContent className="max-w-md mobile-modal">
@@ -542,7 +543,7 @@ export const ForumPage = ({ userRole, currentUserName }: ForumPageProps) => {
                   <Label htmlFor="post-body">Body</Label>
                   <Textarea id="post-body" rows={5} value={postDraft.body ?? ""} onChange={(e) => setPostDraft(d => ({ ...d, body: e.target.value }))} className="mobile-textarea" />
                 </div>
-                <Button className="w-full touch-button" onClick={upsertPost}>{editingId ? "Save Changes" : "Post"}</Button>
+                <Button className="w-full touch-button bg-green-600 hover:bg-green-700 text-white" onClick={upsertPost}>{editingId ? "Save Changes" : "Post"}</Button>
               </div>
             </DialogContent>
           </Dialog>
