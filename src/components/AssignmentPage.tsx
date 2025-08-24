@@ -1539,9 +1539,9 @@ export const AssignmentPage = ({ userRole }: AssignmentPageProps) => {
 
   if (isLoading) {
     return (
-      <div className="space-y-6">
-        <div className="text-center py-12">
-          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto mb-4"></div>
+      <div className="space-y-4 sm:space-y-6">
+        <div className="text-center py-8 sm:py-12">
+          <div className="animate-spin rounded-full h-6 w-6 sm:h-8 sm:w-8 border-b-2 border-primary mx-auto mb-3 sm:mb-4"></div>
           <p className="text-muted-foreground">Loading assignments...</p>
         </div>
       </div>
@@ -1549,21 +1549,21 @@ export const AssignmentPage = ({ userRole }: AssignmentPageProps) => {
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4 sm:space-y-6">
 
 
       {/* Header */}
-      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+      <div className="flex flex-col gap-4">
         <div>
-          <h1 className="text-3xl font-bold text-foreground">
+          <h1 className="text-xl sm:text-2xl lg:text-3xl font-bold text-foreground">
             {userRole === "parent" ? "Student Assignments" : "Class Assignments"}
           </h1>
-          <p className="text-muted-foreground mt-1">
+          <p className="text-sm sm:text-base text-muted-foreground mt-1">
             {userRole === "parent" ? "Upload your child's work, view grades, and chat with teachers" : "Manage, review, grade, and message parents"}
           </p>
           {userRole === "teacher" && selectedClass && (
-            <div className="mt-2 flex items-center gap-2">
-              <Badge variant="secondary" className="text-sm">
+            <div className="mt-2 flex flex-col sm:flex-row sm:items-center gap-2">
+              <Badge variant="secondary" className="text-xs sm:text-sm w-fit">
                 {selectedClass.name} (Grade {selectedClass.grade})
               </Badge>
               <span className="text-xs text-muted-foreground">
@@ -1573,17 +1573,16 @@ export const AssignmentPage = ({ userRole }: AssignmentPageProps) => {
           )}
           {userRole === "teacher" && !selectedClass && (
             <div className="mt-2">
-              <Badge variant="outline" className="text-sm">
+              <Badge variant="outline" className="text-xs sm:text-sm">
                 No class selected - showing assignments from all classes
               </Badge>
             </div>
           )}
         </div>
 
-        <div className="flex items-center space-x-3">
-        
+        <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
           <Select value={filterStatus} onValueChange={(v) => setFilterStatus(v)}>
-            <SelectTrigger className="w-44">
+            <SelectTrigger className="w-full sm:w-44 mobile-input">
               <SelectValue placeholder="Filter by status" />
             </SelectTrigger>
             <SelectContent>
@@ -1596,33 +1595,31 @@ export const AssignmentPage = ({ userRole }: AssignmentPageProps) => {
               <SelectItem value="archived">Archived</SelectItem>
             </SelectContent>
           </Select>
-
-          {/* Removed New Assignment button */}
         </div>
       </div>
 
       
 
       {/* Stats Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4">
         <Card className="border-l-4 border-l-primary">
-          <CardContent className="p-4">
-            <div className="flex items-center space-x-3">
-              <BookOpen className="h-8 w-8 text-primary" />
-              <div>
-                <p className="text-2xl font-bold">{assignments.length}</p>
-                <p className="text-sm text-muted-foreground">Total Assignments</p>
+          <CardContent className="p-3 sm:p-4">
+            <div className="flex items-center space-x-2 sm:space-x-3">
+              <BookOpen className="h-6 w-6 sm:h-8 sm:w-8 text-primary" />
+              <div className="min-w-0">
+                <p className="text-lg sm:text-2xl font-bold">{assignments.length}</p>
+                <p className="text-xs sm:text-sm text-muted-foreground">Total Assignments</p>
               </div>
             </div>
           </CardContent>
         </Card>
 
         <Card className="border-l-4 border-l-success">
-          <CardContent className="p-4">
-            <div className="flex items-center space-x-3">
-              <CheckCircle className="h-8 w-8 text-success" />
-              <div>
-                <p className="text-2xl font-bold">
+          <CardContent className="p-3 sm:p-4">
+            <div className="flex items-center space-x-2 sm:space-x-3">
+              <CheckCircle className="h-6 w-6 sm:h-8 sm:w-8 text-success" />
+              <div className="min-w-0">
+                <p className="text-lg sm:text-2xl font-bold">
                   {userRole === "parent" 
                     ? getGradedAssignmentsCount() // Show graded assignments count for parents
                     : assignments.filter(a => a.status === "active").length // Show active assignments for teachers/admins
@@ -1639,14 +1636,14 @@ export const AssignmentPage = ({ userRole }: AssignmentPageProps) => {
         {userRole === "parent" ? (
                         // For parents, show not started assignments count
           <Card className="border-l-4 border-l-warning">
-            <CardContent className="p-4">
-              <div className="flex items-center space-x-3">
-                <Target className="h-8 w-8 text-warning" />
-                <div>
-                  <p className="text-2xl font-bold">
+            <CardContent className="p-3 sm:p-4">
+              <div className="flex items-center space-x-2 sm:space-x-3">
+                <Target className="h-6 w-6 sm:h-8 sm:w-8 text-warning" />
+                <div className="min-w-0">
+                  <p className="text-lg sm:text-2xl font-bold">
                     {getNotStartedAssignmentsCount()}
                   </p>
-                                      <p className="text-sm text-muted-foreground">Not Started</p>
+                                      <p className="text-xs sm:text-sm text-muted-foreground">Not Started</p>
                 </div>
               </div>
             </CardContent>
@@ -1654,14 +1651,14 @@ export const AssignmentPage = ({ userRole }: AssignmentPageProps) => {
         ) : (
           // For teachers/admins, show total comments
           <Card className="border-l-4 border-l-warning">
-            <CardContent className="p-4">
-              <div className="flex items-center space-x-3">
-                <MessageCircle className="h-8 w-8 text-warning" />
-                <div>
-                  <p className="text-2xl font-bold">
+            <CardContent className="p-3 sm:p-4">
+              <div className="flex items-center space-x-2 sm:space-x-3">
+                <MessageCircle className="h-6 w-6 sm:h-8 sm:w-8 text-warning" />
+                <div className="min-w-0">
+                  <p className="text-lg sm:text-2xl font-bold">
                     {assignments.reduce((total, a) => total + (a.commentCount || 0), 0)}
                   </p>
-                  <p className="text-sm text-muted-foreground">Total Comments</p>
+                  <p className="text-xs sm:text-sm text-muted-foreground">Total Comments</p>
                 </div>
               </div>
             </CardContent>
@@ -1675,14 +1672,14 @@ export const AssignmentPage = ({ userRole }: AssignmentPageProps) => {
 
       {/* Assignments List */}
       {assignments.length > 0 ? (
-        <div className="grid gap-4">
+        <div className="grid gap-3 sm:gap-4">
           {filteredAssignments.map((assignment) => (
             <Card key={assignment.id} className="hover:shadow-lg transition-shadow">
-              <CardHeader>
-                <div className="flex items-start justify-between">
+              <CardHeader className="p-3 sm:p-4">
+                <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-3">
                   <div className="space-y-2">
-                    <div className="flex items-center space-x-3">
-                      <CardTitle className="text-lg">{assignment.title}</CardTitle>
+                    <div className="flex flex-wrap items-center gap-2 sm:gap-3">
+                      <CardTitle className="text-base sm:text-lg">{assignment.title}</CardTitle>
                       
                       {/* Assignment Type with Icon */}
                       <Badge variant="outline" className="flex items-center space-x-1">
@@ -1756,7 +1753,7 @@ export const AssignmentPage = ({ userRole }: AssignmentPageProps) => {
                         </>
                       )}
                     </div>
-                                         <div className="flex items-center space-x-4 text-sm text-muted-foreground">
+                                         <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-4 text-xs sm:text-sm text-muted-foreground">
                        <div className="flex items-center space-x-1">
                          <Calendar className="h-4 w-4" />
                          <span>Due: {formatDueDate(assignment.dueDate)}</span>
@@ -1797,13 +1794,14 @@ export const AssignmentPage = ({ userRole }: AssignmentPageProps) => {
                     </div>
                   </div>
 
-                  <div className="flex items-center space-x-2">
+                  <div className="flex flex-wrap items-center gap-2">
                     {/* Collapse/Expand Button */}
                     <Button
                       variant="outline"
                       size="sm"
                       onClick={() => toggleAssignmentExpansion(assignment.id)}
                       title={expandedAssignments.has(assignment.id) ? "Collapse" : "Expand"}
+                      className="h-8 w-8 p-0"
                     >
                       {expandedAssignments.has(assignment.id) ? (
                         <ChevronUp className="h-4 w-4" />
@@ -1816,6 +1814,7 @@ export const AssignmentPage = ({ userRole }: AssignmentPageProps) => {
                       size="sm"
                       onClick={() => setShowComments(showComments === assignment.id ? null : assignment.id)}
                       title="Comments"
+                      className="h-8 w-8 p-0"
                     >
                       <MessageCircle className="h-4 w-4" />
                     </Button>
@@ -1824,6 +1823,7 @@ export const AssignmentPage = ({ userRole }: AssignmentPageProps) => {
                       size="sm"
                       onClick={() => setSelectedAssignment(assignment)}
                       title="Preview Assignment"
+                      className="h-8 w-8 p-0"
                     >
                       <Eye className="h-4 w-4" />
                     </Button>
@@ -1834,6 +1834,7 @@ export const AssignmentPage = ({ userRole }: AssignmentPageProps) => {
                         size="sm"
                         onClick={() => setViewingSubmissionsFor(assignment.id)}
                         title="View Submissions"
+                        className="h-8 w-8 p-0"
                       >
                         <FileText className="h-4 w-4" />
                       </Button>
@@ -1845,14 +1846,14 @@ export const AssignmentPage = ({ userRole }: AssignmentPageProps) => {
                           <Button
                             variant="outline"
                             size="sm"
-                            className="text-destructive hover:text-destructive"
+                            className="text-destructive hover:text-destructive h-8 w-8 p-0"
                             title="Delete Assignment"
                           >
                             <Trash2 className="h-4 w-4" />
                           </Button>
                         </AlertDialogTrigger>
-                        <AlertDialogContent>
-                          <AlertDialogHeader>
+                        <AlertDialogContent className="mobile-modal">
+                          <AlertDialogHeader className="mobile-modal-header">
                             <AlertDialogTitle>Delete Assignment</AlertDialogTitle>
                             <AlertDialogDescription>
                               Are you sure you want to delete "{assignment.title}"? This action cannot be undone and will remove all associated submissions and comments.
@@ -1876,7 +1877,7 @@ export const AssignmentPage = ({ userRole }: AssignmentPageProps) => {
               
               {/* Collapsible Content */}
               {expandedAssignments.has(assignment.id) ? (
-                <CardContent className="space-y-4">
+                <CardContent className="space-y-3 sm:space-y-4 p-3 sm:p-4 pt-0">
                   <p className="text-muted-foreground">{assignment.description}</p>
                 
                 {/* Time Spent Display */}
@@ -1895,7 +1896,7 @@ export const AssignmentPage = ({ userRole }: AssignmentPageProps) => {
 
                 {/* Parent Action Buttons */}
                 {userRole === "parent" && (
-                  <div className="flex flex-col sm:flex-row gap-3">
+                  <div className="flex flex-col gap-3">
                     {/* Check if assignment is already completed for this parent */}
                     {findSubmissionByAssignment(assignment.id) ? (
                       // Assignment completed - show completion status
@@ -1937,18 +1938,18 @@ export const AssignmentPage = ({ userRole }: AssignmentPageProps) => {
                               {running && currentAssignmentId === assignment.id ? "View Timer" : "Start Assignment"}
                             </Button>
                           </DialogTrigger>
-                          <DialogContent className="max-w-md">
-                            <DialogHeader>
-                              <DialogTitle>Working on: {assignment.title}</DialogTitle>
+                          <DialogContent className="max-w-md mobile-modal">
+                            <DialogHeader className="mobile-modal-header">
+                              <DialogTitle className="text-base sm:text-lg">Working on: {assignment.title}</DialogTitle>
                             </DialogHeader>
-                            <div className="flex flex-col items-center py-8">
-                              <div className="text-6xl font-mono font-bold mb-6">
+                            <div className="flex flex-col items-center py-6 sm:py-8 mobile-modal-content">
+                              <div className="text-4xl sm:text-6xl font-mono font-bold mb-4 sm:mb-6">
                                 {String(Math.floor(elapsedSec / 60)).padStart(2, '0')}:
                                 {String(elapsedSec % 60).padStart(2, '0')}
                               </div>
                               
-                              <div className="flex gap-3 mb-4">
-                                <Button onClick={togglePause} variant={running ? "secondary" : "default"}>
+                              <div className="flex flex-col sm:flex-row gap-2 sm:gap-3 mb-4 w-full">
+                                <Button onClick={togglePause} variant={running ? "secondary" : "default"} className="w-full sm:w-auto touch-button">
                                   {running ? (
                                     <>
                                       <Pause className="h-4 w-4 mr-2" />
@@ -1961,10 +1962,10 @@ export const AssignmentPage = ({ userRole }: AssignmentPageProps) => {
                                     </>
                                   )}
                                 </Button>
-                                <Button variant="outline" onClick={() => setStopwatchMinimized(true)}>
+                                <Button variant="outline" onClick={() => setStopwatchMinimized(true)} className="w-full sm:w-auto touch-button">
                                   Minimize
                                 </Button>
-                                <Button variant="destructive" onClick={() => stopAndSave(false)}>
+                                <Button variant="destructive" onClick={() => stopAndSave(false)} className="w-full sm:w-auto touch-button">
                                   <Square className="h-4 w-4 mr-2" />
                                   Done
                                 </Button>
@@ -1994,11 +1995,11 @@ export const AssignmentPage = ({ userRole }: AssignmentPageProps) => {
                               Submit Assignment
                             </Button>
                           </DialogTrigger>
-                          <DialogContent className="max-w-md">
-                            <DialogHeader>
-                              <DialogTitle>Submit: {assignment.title}</DialogTitle>
+                          <DialogContent className="max-w-md mobile-modal">
+                            <DialogHeader className="mobile-modal-header">
+                              <DialogTitle className="text-base sm:text-lg">Submit: {assignment.title}</DialogTitle>
                             </DialogHeader>
-                            <div className="space-y-4">
+                            <div className="space-y-4 mobile-modal-content">
                               <div>
                                 <Label htmlFor="submission-note">Note (optional)</Label>
                                 <Textarea
@@ -2056,18 +2057,18 @@ export const AssignmentPage = ({ userRole }: AssignmentPageProps) => {
                                 </div>
                               )}
 
-                              <div className="flex gap-2">
+                              <div className="flex flex-col sm:flex-row gap-2">
                                 <Button 
                                   variant="outline" 
                                   onClick={() => setSubmitDialogOpen(null)}
-                                  className="flex-1"
+                                  className="w-full sm:flex-1 touch-button"
                                 >
                                   Cancel
                                 </Button>
                                 <Button 
                                   onClick={() => submitAssignment(assignment.id)}
                                   disabled={uploadedFiles.length === 0 || isUploading}
-                                  className="flex-1"
+                                  className="w-full sm:flex-1 touch-button"
                                 >
                                   {isUploading ? "Uploading..." : "Submit"}
                                 </Button>
@@ -2139,7 +2140,7 @@ export const AssignmentPage = ({ userRole }: AssignmentPageProps) => {
                 )}
 
                 {/* Assignment Details */}
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-4 text-xs sm:text-sm">
                   <div className="flex items-center space-x-2">
                     <BookOpen className="h-4 w-4 text-muted-foreground" />
                     <span>Type: {assignment.type}</span>
@@ -2206,14 +2207,14 @@ export const AssignmentPage = ({ userRole }: AssignmentPageProps) => {
         </div>
       ) : (
         <Card>
-          <CardContent className="p-12 text-center">
-            <BookOpen className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
-            <h3 className="text-lg font-medium text-foreground mb-2">No assignments found</h3>
-            <p className="text-muted-foreground">
+          <CardContent className="p-6 sm:p-12 text-center">
+            <BookOpen className="h-10 w-10 sm:h-12 sm:w-12 text-muted-foreground mx-auto mb-3 sm:mb-4" />
+            <h3 className="text-base sm:text-lg font-medium text-foreground mb-2">No assignments found</h3>
+            <p className="text-sm sm:text-base text-muted-foreground">
               {filterStatus === "all" ? "No assignments have been created yet." : `No ${filterStatus} assignments found.`}
             </p>
             {userRole === "teacher" && (
-              <p className="text-sm text-muted-foreground mt-2">
+              <p className="text-xs sm:text-sm text-muted-foreground mt-2">
                 Create assignments from your Teacher Dashboard to get started.
               </p>
             )}
@@ -2225,19 +2226,19 @@ export const AssignmentPage = ({ userRole }: AssignmentPageProps) => {
 
       {/* Assignment Detail Dialog */}
       <Dialog open={!!selectedAssignment} onOpenChange={() => setSelectedAssignment(null)}>
-        <DialogContent className="max-w-4xl max-h-[80vh] overflow-y-auto">
+        <DialogContent className="max-w-4xl max-h-[80vh] overflow-y-auto mobile-modal">
           {selectedAssignment && (
             <>
-              <DialogHeader>
-                <DialogTitle>{selectedAssignment.title}</DialogTitle>
+              <DialogHeader className="mobile-modal-header">
+                <DialogTitle className="text-base sm:text-lg">{selectedAssignment.title}</DialogTitle>
               </DialogHeader>
-              <div className="space-y-6">
+              <div className="space-y-4 sm:space-y-6 mobile-modal-content">
                 <div>
                   <h4 className="font-medium mb-2">Description</h4>
                   <p className="text-muted-foreground">{selectedAssignment.description}</p>
                 </div>
                 
-                <div className="grid grid-cols-2 gap-4">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
                   <div>
                     <h4 className="font-medium mb-2">Type</h4>
                     <Badge variant="outline">{selectedAssignment.type}</Badge>
@@ -2316,13 +2317,13 @@ export const AssignmentPage = ({ userRole }: AssignmentPageProps) => {
       {userRole === "parent" && (running || elapsedSec > 0) && stopwatchMinimized && (
         <div className="fixed bottom-4 right-4 z-50">
           <Card className="shadow-lg border-2 border-primary/20 cursor-pointer hover:scale-105 transition-transform">
-            <CardContent className="p-3">
-              <div className="flex items-center gap-3">
+            <CardContent className="p-2 sm:p-3">
+              <div className="flex items-center gap-2 sm:gap-3">
                 <div 
                   className="text-center cursor-pointer"
                   onClick={() => setStopwatchMinimized(false)}
                 >
-                  <div className="font-mono text-lg font-bold">
+                  <div className="font-mono text-base sm:text-lg font-bold">
                     {String(Math.floor(elapsedSec / 60)).padStart(2, '0')}:
                     {String(elapsedSec % 60).padStart(2, '0')}
                   </div>
@@ -2332,10 +2333,10 @@ export const AssignmentPage = ({ userRole }: AssignmentPageProps) => {
                 </div>
                 
                 <div className="flex gap-1">
-                  <Button size="sm" variant="ghost" onClick={togglePause}>
+                  <Button size="sm" variant="ghost" onClick={togglePause} className="h-7 w-7 p-0">
                     {running ? <Pause className="h-4 w-4" /> : <Play className="h-4 w-4" />}
                   </Button>
-                  <Button size="sm" variant="ghost" onClick={() => stopAndSave(false)}>
+                  <Button size="sm" variant="ghost" onClick={() => stopAndSave(false)} className="h-7 w-7 p-0">
                     <Square className="h-4 w-4" />
                   </Button>
                 </div>

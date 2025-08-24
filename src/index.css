@@ -2,107 +2,74 @@
 @tailwind components;
 @tailwind utilities;
 
-/* Definition of the design system. All colors, gradients, fonts, etc should be defined here. 
-All colors MUST be HSL.
-*/
-
 @layer base {
   :root {
-    --background: 45 100% 96%;
-    --foreground: 240 10% 15%;
-
-    --card: 0 0% 100%;
-    --card-foreground: 240 10% 15%;
-
-    --popover: 0 0% 100%;
-    --popover-foreground: 240 10% 15%;
-
-    --primary: 200 98% 45%;
-    --primary-foreground: 0 0% 98%;
-
-    --secondary: 120 60% 85%;
-    --secondary-foreground: 240 10% 15%;
-
-    --muted: 60 5% 96%;
-    --muted-foreground: 240 5% 55%;
-
-    --accent: 270 95% 75%;
-    --accent-foreground: 0 0% 98%;
-
-    --destructive: 0 84% 60%;
-    --destructive-foreground: 0 0% 98%;
-
-    --border: 220 13% 91%;
-    --input: 220 13% 91%;
-    --ring: 200 98% 45%;
-
-    --success: 120 60% 50%;
-    --success-foreground: 0 0% 98%;
-    
-    --warning: 45 93% 58%;
-    --warning-foreground: 240 10% 15%;
-
-    --radius: 1rem;
-
-    --sidebar-background: 0 0% 98%;
-
-    --sidebar-foreground: 240 5.3% 26.1%;
-
-    --sidebar-primary: 240 5.9% 10%;
-
-    --sidebar-primary-foreground: 0 0% 98%;
-
-    --sidebar-accent: 240 4.8% 95.9%;
-
-    --sidebar-accent-foreground: 240 5.9% 10%;
-
-    --sidebar-border: 220 13% 91%;
-
-    --sidebar-ring: 217.2 91.2% 59.8%;
+    --background: 45 33% 95%;
+    --foreground: 222.2 84% 4.9%;
+    --card: 45 33% 97%;
+    --card-foreground: 222.2 84% 4.9%;
+    --popover: 45 33% 97%;
+    --popover-foreground: 222.2 84% 4.9%;
+    --primary: 221.2 83.2% 53.3%;
+    --primary-foreground: 210 40% 98%;
+    --secondary: 45 33% 90%;
+    --secondary-foreground: 222.2 84% 4.9%;
+    --muted: 45 33% 90%;
+    --muted-foreground: 215.4 16.3% 46.9%;
+    --accent: 45 33% 88%;
+    --accent-foreground: 222.2 84% 4.9%;
+    --destructive: 0 84.2% 60.2%;
+    --destructive-foreground: 210 40% 98%;
+    --border: 45 33% 85%;
+    --input: 45 33% 90%;
+    --ring: 221.2 83.2% 53.3%;
+    --radius: 0.5rem;
+    --success: 142.1 76.2% 36.3%;
+    --success-foreground: 355.7 100% 97.3%;
+    --warning: 38 92% 50%;
+    --warning-foreground: 48 96% 89%;
+    --sidebar-background: 45 33% 92%;
+    --sidebar-foreground: 222.2 84% 4.9%;
+    --sidebar-primary: 221.2 83.2% 53.3%;
+    --sidebar-primary-foreground: 210 40% 98%;
+    --sidebar-accent: 45 33% 88%;
+    --sidebar-accent-foreground: 222.2 84% 4.9%;
+    --sidebar-border: 45 33% 85%;
+    --sidebar-ring: 221.2 83.2% 53.3%;
   }
 
   .dark {
-    --background: 240 10% 15%;
-    --foreground: 45 100% 96%;
-
-    --card: 240 10% 18%;
-    --card-foreground: 45 100% 96%;
-
-    --popover: 240 10% 18%;
-    --popover-foreground: 45 100% 96%;
-
-    --primary: 200 98% 55%;
-    --primary-foreground: 240 10% 15%;
-
-    --secondary: 120 30% 25%;
-    --secondary-foreground: 45 100% 96%;
-
-    --muted: 240 5% 25%;
-    --muted-foreground: 240 5% 65%;
-
-    --accent: 270 95% 75%;
-    --accent-foreground: 240 10% 15%;
-
-    --destructive: 0 84% 60%;
-    --destructive-foreground: 45 100% 96%;
-
-    --border: 240 5% 25%;
-    --input: 240 5% 25%;
-    --ring: 200 98% 55%;
-    
-    --success: 120 60% 50%;
-    --success-foreground: 45 100% 96%;
-    
-    --warning: 45 93% 58%;
-    --warning-foreground: 240 10% 15%;
-    --sidebar-background: 240 5.9% 10%;
-    --sidebar-foreground: 240 4.8% 95.9%;
-    --sidebar-primary: 224.3 76.3% 48%;
-    --sidebar-primary-foreground: 0 0% 100%;
-    --sidebar-accent: 240 3.7% 15.9%;
-    --sidebar-accent-foreground: 240 4.8% 95.9%;
-    --sidebar-border: 240 3.7% 15.9%;
-    --sidebar-ring: 217.2 91.2% 59.8%;
+    --background: 222.2 84% 4.9%;
+    --foreground: 210 40% 98%;
+    --card: 222.2 84% 4.9%;
+    --card-foreground: 210 40% 98%;
+    --popover: 222.2 84% 4.9%;
+    --popover-foreground: 210 40% 98%;
+    --primary: 217.2 91.2% 59.8%;
+    --primary-foreground: 222.2 84% 4.9%;
+    --secondary: 217.2 32.6% 17.5%;
+    --secondary-foreground: 210 40% 98%;
+    --muted: 217.2 32.6% 17.5%;
+    --muted-foreground: 215 20.2% 65.1%;
+    --accent: 217.2 32.6% 17.5%;
+    --accent-foreground: 210 40% 98%;
+    --destructive: 0 62.8% 30.6%;
+    --destructive-foreground: 210 40% 98%;
+    --border: 217.2 32.6% 17.5%;
+    --input: 217.2 32.6% 17.5%;
+    --ring: 224.3 76.3% 94.1%;
+    --success: 142.1 70.6% 45.3%;
+    --success-foreground: 144.9 80.4% 10%;
+    --warning: 38 92% 50%;
+    --warning-foreground: 48 96% 89%;
+    --sidebar-background: 222.2 84% 4.9%;
+    --sidebar-foreground: 210 40% 98%;
+    --sidebar-primary: 217.2 91.2% 59.8%;
+    --sidebar-primary-foreground: 222.2 84% 4.9%;
+    --sidebar-accent: 217.2 32.6% 17.5%;
+    --sidebar-accent-foreground: 210 40% 98%;
+    --sidebar-border: 217.2 32.6% 17.5%;
+    --sidebar-ring: 224.3 76.3% 94.1%;
   }
 }
 
@@ -110,8 +77,432 @@ All colors MUST be HSL.
   * {
     @apply border-border;
   }
-
   body {
     @apply bg-background text-foreground;
+    font-feature-settings: "rlig" 1, "calt" 1;
+  }
+}
+
+@layer components {
+  /* Mobile-first responsive utilities */
+  .mobile-container {
+    @apply w-full px-3 sm:px-4 md:px-6;
+  }
+  
+  .mobile-card {
+    @apply p-3 sm:p-4 md:p-6;
+  }
+  
+  .mobile-text {
+    @apply text-sm sm:text-base md:text-lg;
+  }
+  
+  .mobile-heading {
+    @apply text-lg sm:text-xl md:text-2xl;
+  }
+  
+  .mobile-grid {
+    @apply grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3 sm:gap-4 md:gap-6;
+  }
+  
+  .mobile-sidebar {
+    @apply w-full lg:w-64 flex-shrink-0;
+  }
+  
+  .mobile-main {
+    @apply flex-1 min-w-0;
+  }
+  
+  /* Touch-friendly button sizes */
+  .touch-button {
+    @apply min-h-[44px] min-w-[44px];
+  }
+  
+  .touch-button-sm {
+    @apply min-h-[36px] min-w-[36px];
+  }
+  
+  /* Mobile-optimized spacing */
+  .mobile-space-y {
+    @apply space-y-3 sm:space-y-4 md:space-y-6;
+  }
+  
+  .mobile-gap {
+    @apply gap-2 sm:gap-3 md:gap-4;
+  }
+  
+  /* Responsive typography */
+  .text-responsive-xs {
+    @apply text-xs sm:text-sm;
+  }
+  
+  .text-responsive-sm {
+    @apply text-sm sm:text-base;
+  }
+  
+  .text-responsive-base {
+    @apply text-base sm:text-lg;
+  }
+  
+  .text-responsive-lg {
+    @apply text-lg sm:text-xl;
+  }
+  
+  .text-responsive-xl {
+    @apply text-xl sm:text-2xl;
+  }
+  
+  .text-responsive-2xl {
+    @apply text-2xl sm:text-3xl;
+  }
+  
+  /* Responsive padding and margins */
+  .p-responsive {
+    @apply p-3 sm:p-4 md:p-6;
+  }
+  
+  .px-responsive {
+    @apply px-3 sm:px-4 md:px-6;
+  }
+  
+  .py-responsive {
+    @apply py-3 sm:py-4 md:py-6;
+  }
+  
+  .m-responsive {
+    @apply m-3 sm:m-4 md:m-6;
+  }
+  
+  .mx-responsive {
+    @apply mx-3 sm:mx-4 md:mx-6;
+  }
+  
+  .my-responsive {
+    @apply my-3 sm:my-4 md:my-6;
+  }
+  
+  /* Mobile-optimized form elements */
+  .mobile-input {
+    @apply h-10 sm:h-12 text-sm sm:text-base;
+  }
+  
+  .mobile-select {
+    @apply h-10 sm:h-12 text-sm sm:text-base;
+  }
+  
+  .mobile-textarea {
+    @apply text-sm sm:text-base;
+  }
+  
+  /* Responsive card layouts */
+  .mobile-card-grid {
+    @apply grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3 sm:gap-4;
+  }
+  
+  .mobile-card-stack {
+    @apply flex flex-col space-y-3 sm:space-y-4;
+  }
+  
+  /* Mobile navigation improvements */
+  .mobile-nav-item {
+    @apply h-12 sm:h-10 text-sm sm:text-base;
+  }
+  
+  .mobile-nav-icon {
+    @apply h-5 w-5 sm:h-4 sm:w-4;
+  }
+  
+  /* Responsive sidebar */
+  .mobile-sidebar-content {
+    @apply p-3 sm:p-4;
+  }
+  
+  .mobile-sidebar-header {
+    @apply p-3 sm:p-4;
+  }
+  
+  .mobile-sidebar-footer {
+    @apply p-3 sm:p-4;
+  }
+  
+  /* Mobile-optimized charts */
+  .mobile-chart {
+    @apply h-48 sm:h-64 md:h-80;
+  }
+  
+  /* Responsive table */
+  .mobile-table {
+    @apply text-xs sm:text-sm;
+  }
+  
+  .mobile-table-cell {
+    @apply p-2 sm:p-3 md:p-4;
+  }
+  
+  /* Mobile-optimized badges */
+  .mobile-badge {
+    @apply text-xs px-2 py-1;
+  }
+  
+  /* Responsive loading states */
+  .mobile-loading {
+    @apply py-6 sm:py-8 md:py-12;
+  }
+  
+  .mobile-loading-spinner {
+    @apply h-6 w-6 sm:h-8 sm:w-8;
+  }
+  
+  /* Mobile-optimized modals and overlays */
+  .mobile-modal {
+    @apply p-4 sm:p-6 md:p-8;
+  }
+  
+  .mobile-modal-header {
+    @apply p-3 sm:p-4 md:p-6;
+  }
+  
+  .mobile-modal-content {
+    @apply p-3 sm:p-4 md:p-6;
+  }
+  
+  /* Responsive button groups */
+  .mobile-button-group {
+    @apply flex flex-col sm:flex-row gap-2 sm:gap-3;
+  }
+  
+  .mobile-button-stack {
+    @apply flex flex-col space-y-2 sm:space-y-3;
+  }
+  
+  /* Mobile-optimized lists */
+  .mobile-list {
+    @apply space-y-2 sm:space-y-3;
+  }
+  
+  .mobile-list-item {
+    @apply p-2 sm:p-3;
+  }
+  
+  /* Responsive image containers */
+  .mobile-image {
+    @apply w-full h-auto max-w-full;
+  }
+  
+  .mobile-image-sm {
+    @apply w-8 h-8 sm:w-10 sm:h-10 md:w-12 md:h-12;
+  }
+  
+  .mobile-image-md {
+    @apply w-12 h-12 sm:w-16 sm:h-16 md:w-20 md:h-20;
+  }
+  
+  .mobile-image-lg {
+    @apply w-16 h-16 sm:w-20 sm:h-20 md:w-24 md:h-24;
+  }
+  
+  /* Mobile-optimized icons */
+  .mobile-icon {
+    @apply h-4 w-4 sm:h-5 sm:w-5 md:h-6 md:w-6;
+  }
+  
+  .mobile-icon-sm {
+    @apply h-3 w-3 sm:h-4 sm:w-4;
+  }
+  
+  .mobile-icon-lg {
+    @apply h-6 w-6 sm:h-8 sm:w-8;
+  }
+  
+  /* Responsive flexbox utilities */
+  .mobile-flex-col {
+    @apply flex flex-col sm:flex-row;
+  }
+  
+  .mobile-flex-wrap {
+    @apply flex flex-wrap gap-2 sm:gap-3 md:gap-4;
+  }
+  
+  .mobile-flex-center {
+    @apply flex items-center justify-center;
+  }
+  
+  .mobile-flex-between {
+    @apply flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 sm:gap-3;
+  }
+  
+  /* Mobile-optimized shadows and borders */
+  .mobile-shadow {
+    @apply shadow-sm sm:shadow-md md:shadow-lg;
+  }
+  
+  .mobile-border {
+    @apply border border-border;
+  }
+  
+  .mobile-rounded {
+    @apply rounded-lg sm:rounded-xl md:rounded-2xl;
+  }
+  
+  /* Responsive background utilities */
+  .mobile-bg-gradient {
+    @apply bg-gradient-to-r from-primary/10 to-accent/10;
+  }
+  
+  .mobile-bg-card {
+    @apply bg-card;
+  }
+  
+  .mobile-bg-muted {
+    @apply bg-muted;
+  }
+  
+  /* Mobile-optimized transitions */
+  .mobile-transition {
+    @apply transition-all duration-200 ease-in-out;
+  }
+  
+  .mobile-hover {
+    @apply hover:shadow-md hover:scale-105 transition-all duration-200;
+  }
+  
+  /* Responsive overflow handling */
+  .mobile-overflow {
+    @apply overflow-x-auto overflow-y-auto;
+  }
+  
+  .mobile-scroll {
+    @apply scrollbar-thin scrollbar-thumb-gray-300 scrollbar-track-gray-100;
+  }
+  
+  /* Mobile-optimized focus states */
+  .mobile-focus {
+    @apply focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2;
+  }
+  
+  /* Responsive z-index utilities */
+  .mobile-z-dropdown {
+    @apply z-50;
+  }
+  
+  .mobile-z-modal {
+    @apply z-50;
+  }
+  
+  .mobile-z-overlay {
+    @apply z-40;
+  }
+  
+  .mobile-z-sidebar {
+    @apply z-30;
+  }
+  
+  /* Mobile-optimized animations */
+  .mobile-animate-in {
+    @apply animate-in fade-in-0 slide-in-from-bottom-2 duration-300;
+  }
+  
+  .mobile-animate-out {
+    @apply animate-out fade-out-0 slide-out-to-bottom-2 duration-300;
+  }
+  
+  /* Responsive aspect ratios */
+  .mobile-aspect-square {
+    @apply aspect-square;
+  }
+  
+  .mobile-aspect-video {
+    @apply aspect-video;
+  }
+  
+  .mobile-aspect-auto {
+    @apply aspect-auto;
+  }
+}
+
+/* Custom scrollbar for mobile */
+@layer utilities {
+  .scrollbar-thin {
+    scrollbar-width: thin;
+  }
+  
+  .scrollbar-thumb-gray-300 {
+    scrollbar-color: rgb(209 213 219) transparent;
+  }
+  
+  .scrollbar-track-gray-100 {
+    scrollbar-color: transparent rgb(243 244 246);
+  }
+  
+  /* Hide scrollbar on mobile for cleaner look */
+  @media (max-width: 640px) {
+    .scrollbar-hide-mobile {
+      -ms-overflow-style: none;
+      scrollbar-width: none;
+    }
+    
+    .scrollbar-hide-mobile::-webkit-scrollbar {
+      display: none;
+    }
+  }
+}
+
+/* Mobile-specific media queries */
+@media (max-width: 640px) {
+  .mobile-only {
+    display: block;
+  }
+  
+  .desktop-only {
+    display: none;
+  }
+  
+  /* Ensure touch targets are large enough */
+  button, a, [role="button"] {
+    min-height: 44px;
+    min-width: 44px;
+  }
+  
+  /* Optimize text for mobile reading */
+  body {
+    font-size: 16px; /* Prevents zoom on iOS */
+    line-height: 1.5;
+  }
+  
+  /* Improve mobile form experience */
+  input, select, textarea {
+    font-size: 16px; /* Prevents zoom on iOS */
+  }
+}
+
+@media (min-width: 641px) {
+  .mobile-only {
+    display: none;
+  }
+  
+  .desktop-only {
+    display: block;
+  }
+}
+
+/* Dark mode mobile optimizations */
+@media (prefers-color-scheme: dark) {
+  .mobile-dark-optimized {
+    @apply bg-gray-900 text-gray-100;
+  }
+}
+
+/* High contrast mode support */
+@media (prefers-contrast: high) {
+  .mobile-high-contrast {
+    @apply border-2 border-current;
+  }
+}
+
+/* Reduced motion support */
+@media (prefers-reduced-motion: reduce) {
+  .mobile-reduced-motion {
+    animation: none;
+    transition: none;
   }
 }

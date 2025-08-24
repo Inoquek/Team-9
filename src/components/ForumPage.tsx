@@ -368,14 +368,14 @@ export const ForumPage = ({ userRole, currentUserName }: ForumPageProps) => {
     if (!nodes.length) return null;
 
     return (
-      <ul className={`space-y-3 ${depth ? "pl-4 border-l" : ""}`}>
+      <ul className={`space-y-3 ${depth ? "pl-2 sm:pl-4 border-l" : ""}`}>
         {nodes.map(c => {
           const hidden = c.hidden === true;
           const hiddenForViewer = hidden && !canModerateContent();
           const hasUserUpvoted = user && c.upvotedBy.includes(user.uid);
           
           return (
-            <li key={c.id} className="flex items-start gap-3">
+            <li key={c.id} className="flex items-start gap-2 sm:gap-3">
               {/* votes (up only) */}
               <div className="flex flex-col items-center pt-1">
                 <Button
@@ -392,7 +392,7 @@ export const ForumPage = ({ userRole, currentUserName }: ForumPageProps) => {
               </div>
 
               <div className="flex-1 min-w-0">
-                <div className="flex flex-wrap items-center gap-2 text-sm">
+                <div className="flex flex-wrap items-center gap-2 text-xs sm:text-sm">
                   <span className="font-medium">{c.authorName}</span>
                   <Badge variant="outline" className="capitalize">{c.authorRole}</Badge>
                   {hidden && <Badge variant="destructive">Hidden</Badge>}
@@ -405,11 +405,11 @@ export const ForumPage = ({ userRole, currentUserName }: ForumPageProps) => {
                     This comment has been hidden by a teacher.
                   </div>
                 ) : (
-                  <div className="text-sm mt-1 whitespace-pre-wrap break-words">{c.body}</div>
+                  <div className="text-xs sm:text-sm mt-1 whitespace-pre-wrap break-words">{c.body}</div>
                 )}
 
                 {/* actions */}
-                <div className="mt-2 flex items-center gap-2">
+                <div className="mt-2 flex flex-wrap items-center gap-2">
                   {!hiddenForViewer && (
                     <Button
                       variant="ghost"
@@ -456,48 +456,48 @@ export const ForumPage = ({ userRole, currentUserName }: ForumPageProps) => {
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4 sm:space-y-6">
       {/* Header */}
-      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+      <div className="flex flex-col gap-4">
         <div>
-          <h1 className="text-3xl font-bold text-foreground">Forum</h1>
-          <p className="text-muted-foreground mt-1">Start topics, ask questions, and share advice.</p>
+          <h1 className="text-xl sm:text-2xl lg:text-3xl font-bold text-foreground">Forum</h1>
+          <p className="text-sm sm:text-base text-muted-foreground mt-1">Start topics, ask questions, and share advice.</p>
         </div>
 
         {/* Controls */}
-        <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 w-full sm:w-auto">
-          <div className="flex items-center gap-4">
+        <div className="flex flex-col gap-3">
+          <div className="flex items-center gap-2 sm:gap-4">
             <SearchIcon className="h-4 w-4 text-muted-foreground" />
             <Input
               placeholder="Search posts..."
               value={query}
               onChange={(e) => setQuery(e.target.value)}
-              className="w-64"
+              className="flex-1 sm:w-64 mobile-input"
             />
           </div>
 
-          <Select value={filterTag} onValueChange={(v) => setFilterTag(v as "all" | ForumTag)}>
-            <SelectTrigger className="w-32">
-              <SelectValue placeholder="Filter by tag" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">All tags</SelectItem>
-              {TAGS.map(t => <SelectItem key={t} value={t}>{t[0].toUpperCase() + t.slice(1)}</SelectItem>)}
-            </SelectContent>
-          </Select>
+          <div className="flex flex-col sm:flex-row gap-2 sm:gap-3">
+            <Select value={filterTag} onValueChange={(v) => setFilterTag(v as "all" | ForumTag)}>
+              <SelectTrigger className="w-full sm:w-32 mobile-input">
+                <SelectValue placeholder="Filter by tag" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All tags</SelectItem>
+                {TAGS.map(t => <SelectItem key={t} value={t}>{t[0].toUpperCase() + t.slice(1)}</SelectItem>)}
+              </SelectContent>
+            </Select>
 
-          <Select value={sortKey} onValueChange={(v) => setSortKey(v as SortKey)}>
-            <SelectTrigger className="w-32">
-              <SelectValue placeholder="Sort by" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="hot">Hot</SelectItem>
-              <SelectItem value="new">New</SelectItem>
-              <SelectItem value="top">Top</SelectItem>
-            </SelectContent>
-          </Select>
+            <Select value={sortKey} onValueChange={(v) => setSortKey(v as SortKey)}>
+              <SelectTrigger className="w-full sm:w-32 mobile-input">
+                <SelectValue placeholder="Sort by" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="hot">Hot</SelectItem>
+                <SelectItem value="new">New</SelectItem>
+                <SelectItem value="top">Top</SelectItem>
+              </SelectContent>
+            </Select>
 
-          <div className="flex items-center gap-2">
             <Button
               variant="outline"
               size="sm"
@@ -508,7 +508,7 @@ export const ForumPage = ({ userRole, currentUserName }: ForumPageProps) => {
                   setExpandedPosts(new Set(filtered.map(p => p.id)));
                 }
               }}
-              className="text-xs"
+              className="text-xs h-10"
             >
               {expandedPosts.size === filtered.length ? "Collapse All" : "Expand All"}
             </Button>
@@ -516,23 +516,23 @@ export const ForumPage = ({ userRole, currentUserName }: ForumPageProps) => {
 
           <Dialog open={isPostDialogOpen} onOpenChange={(o) => { setPostDialogOpen(o); if (!o) setEditingId(null); }}>
             <DialogTrigger asChild>
-              <Button onClick={openCreate} className="flex items-center gap-2">
+              <Button onClick={openCreate} className="flex items-center gap-2 w-full sm:w-auto h-10">
                 <Plus className="h-4 w-4" /> New Post
               </Button>
             </DialogTrigger>
-            <DialogContent className="max-w-md">
-              <DialogHeader>
+            <DialogContent className="max-w-md mobile-modal">
+              <DialogHeader className="mobile-modal-header">
                 <DialogTitle>{editingId ? "Edit Post" : "Create New Post"}</DialogTitle>
               </DialogHeader>
-              <div className="space-y-4">
+              <div className="space-y-4 mobile-modal-content">
                 <div>
                   <Label htmlFor="post-title">Title</Label>
-                  <Input id="post-title" value={postDraft.title ?? ""} onChange={(e) => setPostDraft(d => ({ ...d, title: e.target.value }))} />
+                  <Input id="post-title" value={postDraft.title ?? ""} onChange={(e) => setPostDraft(d => ({ ...d, title: e.target.value }))} className="mobile-input" />
                 </div>
                 <div>
                   <Label htmlFor="post-tag">Tag</Label>
                   <Select value={(postDraft.tag as ForumTag) ?? "general"} onValueChange={(v) => setPostDraft(d => ({ ...d, tag: v as ForumTag }))}>
-                    <SelectTrigger><SelectValue placeholder="Select tag" /></SelectTrigger>
+                    <SelectTrigger className="mobile-input"><SelectValue placeholder="Select tag" /></SelectTrigger>
                     <SelectContent>
                       {TAGS.map(t => <SelectItem key={t} value={t}>{t[0].toUpperCase() + t.slice(1)}</SelectItem>)}
                     </SelectContent>
@@ -540,9 +540,9 @@ export const ForumPage = ({ userRole, currentUserName }: ForumPageProps) => {
                 </div>
                 <div>
                   <Label htmlFor="post-body">Body</Label>
-                  <Textarea id="post-body" rows={5} value={postDraft.body ?? ""} onChange={(e) => setPostDraft(d => ({ ...d, body: e.target.value }))} />
+                  <Textarea id="post-body" rows={5} value={postDraft.body ?? ""} onChange={(e) => setPostDraft(d => ({ ...d, body: e.target.value }))} className="mobile-textarea" />
                 </div>
-                <Button className="w-full" onClick={upsertPost}>{editingId ? "Save Changes" : "Post"}</Button>
+                <Button className="w-full touch-button" onClick={upsertPost}>{editingId ? "Save Changes" : "Post"}</Button>
               </div>
             </DialogContent>
           </Dialog>
@@ -551,13 +551,13 @@ export const ForumPage = ({ userRole, currentUserName }: ForumPageProps) => {
 
       {/* Loading */}
       {loading ? (
-        <div className="flex justify-center items-center py-12">
+        <div className="flex justify-center items-center py-8 sm:py-12">
           <div className="text-muted-foreground">Loading forum posts...</div>
         </div>
       ) : (
         <>
           {/* Posts */}
-          <div className="space-y-4">
+          <div className="space-y-3 sm:space-y-4">
             {filtered.map(p => {
               const isExpanded = expandedPosts.has(p.id);
               return (
@@ -565,8 +565,8 @@ export const ForumPage = ({ userRole, currentUserName }: ForumPageProps) => {
                   key={p.id}
                   className={`hover:shadow-lg transition-shadow ${p.isPinned ? "border-l-4 border-l-amber-500" : ""}`}
                 >
-                  <CardHeader>
-                    <div className="flex items-start gap-4">
+                  <CardHeader className="p-3 sm:p-4">
+                    <div className="flex items-start gap-3 sm:gap-4">
                       {/* vote column (up only) */}
                       <div className="flex flex-col items-center">
                         <Button
@@ -583,17 +583,17 @@ export const ForumPage = ({ userRole, currentUserName }: ForumPageProps) => {
 
                       {/* content */}
                       <div className="flex-1 min-w-0">
-                        <div className="flex items-start justify-between gap-3">
+                        <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-3">
                           <div className="space-y-2">
-                            <div className="flex items-center gap-2">
+                            <div className="flex items-center gap-2 flex-wrap">
                               {p.isPinned && <Pin className="h-4 w-4 text-amber-600" />}
-                              <CardTitle className="text-lg">{p.title}</CardTitle>
+                              <CardTitle className="text-base sm:text-lg">{p.title}</CardTitle>
                               <Badge className={tagBadge(p.tag)}>{p.tag}</Badge>
                             </div>
-                            <div className="text-sm text-muted-foreground">
+                            <div className="text-xs sm:text-sm text-muted-foreground">
                               Posted by <span className="font-medium">{p.authorName}</span> • {fmt(p.createdAt)}
                             </div>
-                            <div className="flex items-center gap-4 text-sm text-muted-foreground">
+                            <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-4 text-xs sm:text-sm text-muted-foreground">
                               <span className="flex items-center gap-1">
                                 <MessageCircle className="h-4 w-4" /> {comments[p.id]?.length || 0} comments
                               </span>
@@ -613,11 +613,11 @@ export const ForumPage = ({ userRole, currentUserName }: ForumPageProps) => {
                               >
                                 {isExpanded ? (
                                   <span className="flex items-center gap-1">
-                                    <EyeOff className="h-3 w-3" /> Hide Comments
+                                    <EyeOff className="h-3 w-3" /> <span className="hidden sm:inline">Hide Comments</span><span className="sm:hidden">Hide</span>
                                   </span>
                                 ) : (
                                   <span className="flex items-center gap-1">
-                                    <MessageCircle className="h-3 w-3" /> Show Comments
+                                    <MessageCircle className="h-3 w-3" /> <span className="hidden sm:inline">Show Comments</span><span className="sm:hidden">Show</span>
                                   </span>
                                 )}
                               </Button>
@@ -627,17 +627,17 @@ export const ForumPage = ({ userRole, currentUserName }: ForumPageProps) => {
                           {/* actions */}
                           <div className="flex items-center gap-2 shrink-0">
                             {canPinPost() && (
-                              <Button size="sm" variant="outline" title={p.isPinned ? "Unpin" : "Pin"} onClick={() => togglePin(p.id)}>
+                              <Button size="sm" variant="outline" title={p.isPinned ? "Unpin" : "Pin"} onClick={() => togglePin(p.id)} className="h-8 w-8 p-0">
                                 <Pin className="h-4 w-4" />
                               </Button>
                             )}
                             {canEditPost(p) && (
-                              <Button size="sm" variant="outline" title="Edit" onClick={() => openEdit(p)}>
+                              <Button size="sm" variant="outline" title="Edit" onClick={() => openEdit(p)} className="h-8 w-8 p-0">
                                 <Edit className="h-4 w-4" />
                               </Button>
                             )}
                             {canDeletePost(p) && (
-                              <Button size="sm" variant="outline" title="Delete" onClick={() => removePost(p.id, p.authorRole, p.authorName)}>
+                              <Button size="sm" variant="outline" title="Delete" onClick={() => removePost(p.id, p.authorRole, p.authorName)} className="h-8 w-8 p-0">
                                 <Trash2 className="h-4 w-4" />
                               </Button>
                             )}
@@ -649,28 +649,28 @@ export const ForumPage = ({ userRole, currentUserName }: ForumPageProps) => {
 
                   {/* Show post body and comments only when expanded */}
                   {isExpanded && (
-                    <CardContent className="space-y-4">
+                    <CardContent className="space-y-3 sm:space-y-4 p-3 sm:p-4 pt-0">
                       <div className="whitespace-pre-wrap">{p.body}</div>
 
                       {/* New top-level comment */}
-                      <div className="flex items-center justify-between">
+                      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                         <div className="text-sm font-medium flex items-center gap-2">
                           <MessageCircle className="h-4 w-4" /> {comments[p.id]?.length || 0} comments
                         </div>
                         <Dialog open={Boolean(replyFor?.postId === p.id && replyFor?.parentId === null)}
                                 onOpenChange={(o) => (!o ? setReplyFor(null) : openReply(p.id, null))}>
                           <DialogTrigger asChild>
-                            <Button size="sm" variant="outline" onClick={() => openReply(p.id, null)}>
+                            <Button size="sm" variant="outline" onClick={() => openReply(p.id, null)} className="w-full sm:w-auto h-10">
                               Add Comment
                             </Button>
                           </DialogTrigger>
-                          <DialogContent className="max-w-md">
-                            <DialogHeader><DialogTitle>New comment</DialogTitle></DialogHeader>
-                            <div className="space-y-3">
-                              <Textarea rows={4} value={replyText} onChange={(e) => setReplyText(e.target.value)} placeholder="Write your comment..." />
-                              <div className="flex justify-end gap-2">
-                                <Button variant="secondary" onClick={() => setReplyFor(null)}>Cancel</Button>
-                                <Button onClick={saveReply}>Post</Button>
+                          <DialogContent className="max-w-md mobile-modal">
+                            <DialogHeader className="mobile-modal-header"><DialogTitle>New comment</DialogTitle></DialogHeader>
+                            <div className="space-y-3 mobile-modal-content">
+                              <Textarea rows={4} value={replyText} onChange={(e) => setReplyText(e.target.value)} placeholder="Write your comment..." className="mobile-textarea" />
+                              <div className="flex flex-col sm:flex-row justify-end gap-2">
+                                <Button variant="secondary" onClick={() => setReplyFor(null)} className="w-full sm:w-auto touch-button">Cancel</Button>
+                                <Button onClick={saveReply} className="w-full sm:w-auto touch-button">Post</Button>
                               </div>
                             </div>
                           </DialogContent>
@@ -689,13 +689,13 @@ export const ForumPage = ({ userRole, currentUserName }: ForumPageProps) => {
                       {/* Reply dialog for nested replies */}
                       <Dialog open={Boolean(replyFor?.postId === p.id && replyFor?.parentId)}
                               onOpenChange={(o) => (!o ? setReplyFor(null) : undefined)}>
-                        <DialogContent className="max-w-md">
-                          <DialogHeader><DialogTitle>Reply</DialogTitle></DialogHeader>
-                          <div className="space-y-3">
-                            <Textarea rows={3} value={replyText} onChange={(e) => setReplyText(e.target.value)} placeholder="Write your reply..." />
-                            <div className="flex justify-end gap-2">
-                              <Button variant="secondary" onClick={() => setReplyFor(null)}>Cancel</Button>
-                              <Button onClick={saveReply}><ReplyIcon className="h-4 w-4 mr-1" /> Reply</Button>
+                        <DialogContent className="max-w-md mobile-modal">
+                          <DialogHeader className="mobile-modal-header"><DialogTitle>Reply</DialogTitle></DialogHeader>
+                          <div className="space-y-3 mobile-modal-content">
+                            <Textarea rows={3} value={replyText} onChange={(e) => setReplyText(e.target.value)} placeholder="Write your reply..." className="mobile-textarea" />
+                            <div className="flex flex-col sm:flex-row justify-end gap-2">
+                              <Button variant="secondary" onClick={() => setReplyFor(null)} className="w-full sm:w-auto touch-button">Cancel</Button>
+                              <Button onClick={saveReply} className="w-full sm:w-auto touch-button"><ReplyIcon className="h-4 w-4 mr-1" /> Reply</Button>
                             </div>
                           </div>
                         </DialogContent>
@@ -709,10 +709,10 @@ export const ForumPage = ({ userRole, currentUserName }: ForumPageProps) => {
 
           {filtered.length === 0 && (
             <Card>
-              <CardContent className="p-12 text-center">
-                <MessageCircle className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
-                <h3 className="text-lg font-medium text-foreground mb-2">No posts yet</h3>
-                <p className="text-muted-foreground">Be the first to start a discussion.</p>
+              <CardContent className="p-6 sm:p-12 text-center">
+                <MessageCircle className="h-10 w-10 sm:h-12 sm:w-12 text-muted-foreground mx-auto mb-3 sm:mb-4" />
+                <h3 className="text-base sm:text-lg font-medium text-foreground mb-2">No posts yet</h3>
+                <p className="text-sm sm:text-base text-muted-foreground">Be the first to start a discussion.</p>
               </CardContent>
             </Card>
           )}

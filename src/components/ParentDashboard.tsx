@@ -552,8 +552,8 @@ export const ParentDashboard = ({ onNavigate }: ParentDashboardProps) => {
 
   if (isLoading) {
     return (
-      <div className="space-y-6">
-        <div className="text-center py-12">
+      <div className="space-y-4 sm:space-y-6">
+        <div className="text-center py-8 sm:py-12">
           <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto mb-4"></div>
           <p className="text-muted-foreground">Loading your dashboard...</p>
         </div>
@@ -562,28 +562,28 @@ export const ParentDashboard = ({ onNavigate }: ParentDashboardProps) => {
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4 sm:space-y-6">
       {/* Welcome Section */}
-      <div className="bg-gradient-to-r from-primary/10 to-secondary/10 rounded-2xl p-6">
-        <h1 className="text-2xl font-bold text-foreground mb-2">Good morning, {user?.displayName || 'Parent'}! 👋</h1>
-        <p className="text-muted-foreground">
+      <div className="bg-gradient-to-r from-primary/10 to-secondary/10 rounded-xl sm:rounded-2xl p-4 sm:p-6">
+        <h1 className="text-xl sm:text-2xl font-bold text-foreground mb-2">Good morning, {user?.displayName || 'Parent'}! 👋</h1>
+        <p className="text-sm sm:text-base text-muted-foreground">
           Your child has {activeAssignments.length} active assignment{activeAssignments.length === 1 ? "" : "s"} and {newAnnouncements48h} new announcement{newAnnouncements48h === 1 ? "" : "s"}.
         </p>
       </div>
 
       {/* Daily Learning Streak */}
       <Card className="overflow-hidden">
-        <CardHeader className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-          <CardTitle className="flex items-center gap-2">
+        <CardHeader className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 p-3 sm:p-4">
+          <CardTitle className="flex items-center gap-2 text-base sm:text-lg">
             <Flame className="h-5 w-5 text-orange-500" /> Daily Learning Streak
           </CardTitle>
           <div className="flex flex-wrap items-center gap-2">
             <div className="flex items-center gap-2">
-              <Button variant={metric === "minutes" ? "default" : "outline"} size="sm" onClick={() => setMetric("minutes")}>Minutes</Button>
-              <Button variant={metric === "tasks" ? "default" : "outline"} size="sm" onClick={() => setMetric("tasks")}>Tasks</Button>
+              <Button variant={metric === "minutes" ? "default" : "outline"} size="sm" onClick={() => setMetric("minutes")} className="h-8 text-xs">Minutes</Button>
+              <Button variant={metric === "tasks" ? "default" : "outline"} size="sm" onClick={() => setMetric("tasks")} className="h-8 text-xs">Tasks</Button>
             </div>
             <div className="flex items-center gap-2">
-              <span className="text-sm text-muted-foreground">Goal</span>
+              <span className="text-xs sm:text-sm text-muted-foreground">Goal</span>
               <Input
                 type="number"
                 value={currentGoal}
@@ -591,20 +591,20 @@ export const ParentDashboard = ({ onNavigate }: ParentDashboardProps) => {
                   const v = Math.max(0, Number(e.target.value || 0));
                   setGoal((g) => (metric === "minutes" ? { ...g, minutes: v } : { ...g, tasks: v }));
                 }}
-                className="h-8 w-20"
+                className="h-8 w-16 sm:w-20 text-xs"
               />
             </div>
-            <Button variant="outline" size="sm" onClick={addMoreData}>Add more data</Button>
+            <Button variant="outline" size="sm" onClick={addMoreData} className="h-8 text-xs">Add more data</Button>
           </div>
         </CardHeader>
-        <CardContent className="pt-0">
+        <CardContent className="pt-0 p-3 sm:p-4">
           <div className="h-48 sm:h-64">
             <ResponsiveContainer width="100%" height="100%">
               <BarChart data={last14} margin={{ top: 10, right: 10, left: 0, bottom: 0 }}>
                 <XAxis
                   dataKey="date"
                   tickFormatter={formatShortDay}
-                  tick={{ fontSize: 12 }}
+                  tick={{ fontSize: 10 }}
                   axisLine={false}
                   tickLine={false}
                 />
@@ -633,38 +633,38 @@ export const ParentDashboard = ({ onNavigate }: ParentDashboardProps) => {
       </Card>
 
       {/* Quick Stats */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-4">
         <Card className="border-l-4 border-l-primary">
-          <CardContent className="p-4">
-            <div className="flex items-center space-x-3">
-              <BookOpen className="h-8 w-8 text-primary" />
-              <div>
-                <p className="text-2xl font-bold">{activeAssignments.length}</p>
-                <p className="text-sm text-muted-foreground">Active Assignments</p>
+          <CardContent className="p-3 sm:p-4">
+            <div className="flex items-center space-x-2 sm:space-x-3">
+              <BookOpen className="h-6 w-6 sm:h-8 sm:w-8 text-primary" />
+              <div className="min-w-0">
+                <p className="text-lg sm:text-2xl font-bold">{activeAssignments.length}</p>
+                <p className="text-xs sm:text-sm text-muted-foreground">Active Assignments</p>
               </div>
             </div>
           </CardContent>
         </Card>
 
         <Card className="border-l-4 border-l-success">
-          <CardContent className="p-4">
-            <div className="flex items-center space-x-3">
-              <CheckCircle className="h-8 w-8 text-success" />
-              <div>
-                <p className="text-2xl font-bold">{completedThisWeek}</p>
-                <p className="text-sm text-muted-foreground">Completed This Week</p>
+          <CardContent className="p-3 sm:p-4">
+            <div className="flex items-center space-x-2 sm:space-x-3">
+              <CheckCircle className="h-6 w-6 sm:h-8 sm:w-8 text-success" />
+              <div className="min-w-0">
+                <p className="text-lg sm:text-2xl font-bold">{completedThisWeek}</p>
+                <p className="text-xs sm:text-sm text-muted-foreground">Completed This Week</p>
               </div>
             </div>
           </CardContent>
         </Card>
 
         <Card className="border-l-4 border-l-warning">
-          <CardContent className="p-4">
-            <div className="flex items-center space-x-3">
-              <Bell className="h-8 w-8 text-warning" />
-              <div>
-                <p className="text-2xl font-bold">{newAnnouncements48h}</p>
-                <p className="text-sm text-muted-foreground">New Announcements (48h)</p>
+          <CardContent className="p-3 sm:p-4">
+            <div className="flex items-center space-x-2 sm:space-x-3">
+              <Bell className="h-6 w-6 sm:h-8 sm:w-8 text-warning" />
+              <div className="min-w-0">
+                <p className="text-lg sm:text-2xl font-bold">{newAnnouncements48h}</p>
+                <p className="text-xs sm:text-sm text-muted-foreground">New Announcements (48h)</p>
               </div>
             </div>
           </CardContent>
@@ -673,35 +673,35 @@ export const ParentDashboard = ({ onNavigate }: ParentDashboardProps) => {
 
       {/* Recent Assignments (live from Firebase) */}
       <Card>
-        <CardHeader className="flex flex-row items-center justify-between">
-          <CardTitle className="flex items-center space-x-2">
+        <CardHeader className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 p-3 sm:p-4">
+          <CardTitle className="flex items-center space-x-2 text-base sm:text-lg">
             <BookOpen className="h-5 w-5 text-primary" />
             <span>Recent Assignments</span>
           </CardTitle>
-          <Button variant="outline" size="sm" onClick={() => onNavigate("assignments")}>
+          <Button variant="outline" size="sm" onClick={() => onNavigate("assignments")} className="h-8 text-xs">
             View All
           </Button>
         </CardHeader>
-        <CardContent className="space-y-3">
+        <CardContent className="space-y-2 sm:space-y-3 p-3 sm:p-4">
           {nextAssignments.length === 0 ? (
             <div className="text-sm text-muted-foreground">No upcoming assignments.</div>
           ) : (
             nextAssignments.map((assignment) => (
-              <div key={assignment.id} className="flex items-center justify-between p-3 rounded-lg bg-muted/50">
-                <div className="flex items-center space-x-3">
+              <div key={assignment.id} className="flex items-center justify-between p-2 sm:p-3 rounded-lg bg-muted/50">
+                <div className="flex items-center space-x-2 sm:space-x-3 min-w-0 flex-1">
                   {assignment.status === "archived" ? (
-                    <CheckCircle className="h-5 w-5 text-success" />
+                    <CheckCircle className="h-4 w-4 sm:h-5 sm:w-5 text-success flex-shrink-0" />
                   ) : (
-                    <Clock className="h-5 w-5 text-warning" />
+                    <Clock className="h-4 w-4 sm:h-5 sm:w-5 text-warning flex-shrink-0" />
                   )}
-                  <div>
-                    <h4 className="font-medium text-foreground">{assignment.title}</h4>
-                    <p className="text-sm text-muted-foreground">Due: {dueLabel(assignment.dueDate)}</p>
+                  <div className="min-w-0 flex-1">
+                    <h4 className="font-medium text-foreground text-sm truncate">{assignment.title}</h4>
+                    <p className="text-xs text-muted-foreground">Due: {dueLabel(assignment.dueDate)}</p>
                   </div>
                 </div>
-                <div className="flex items-center gap-2">
-                  <Badge variant="outline">{assignment.type}</Badge>
-                  <Badge variant={assignment.status === "archived" ? "default" : "secondary"}>
+                <div className="flex items-center gap-2 ml-2">
+                  <Badge variant="outline" className="text-xs">{assignment.type}</Badge>
+                  <Badge variant={assignment.status === "archived" ? "default" : "secondary"} className="text-xs">
                     {assignment.status === "archived" ? "✅ Done" : "📝 Pending"}
                   </Badge>
                 </div>
@@ -713,41 +713,41 @@ export const ParentDashboard = ({ onNavigate }: ParentDashboardProps) => {
 
       {/* Recent Announcements (live from Firebase) */}
       <Card>
-        <CardHeader className="flex flex-row items-center justify-between">
-          <CardTitle className="flex items-center space-x-2">
+        <CardHeader className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 p-3 sm:p-4">
+          <CardTitle className="flex items-center space-x-2 text-base sm:text-lg">
             <Bell className="h-5 w-5 text-warning" />
             <span>Recent Announcements</span>
           </CardTitle>
-          <Button variant="outline" size="sm" onClick={() => onNavigate("announcements")}>
+          <Button variant="outline" size="sm" onClick={() => onNavigate("announcements")} className="h-8 text-xs">
             View All
           </Button>
         </CardHeader>
-        <CardContent className="space-y-3">
+        <CardContent className="space-y-2 sm:space-y-3 p-3 sm:p-4">
           {recentAnnouncements.length === 0 ? (
             <div className="text-sm text-muted-foreground">No announcements yet.</div>
           ) : (
             recentAnnouncements.map((announcement) => (
               <div
                 key={announcement.id}
-                className={`flex items-center justify-between p-3 rounded-lg bg-muted/50 ${announcement.priority === "high" ? "border-l-4 border-l-red-500" : ""}`}
+                className={`flex items-center justify-between p-2 sm:p-3 rounded-lg bg-muted/50 ${announcement.priority === "high" ? "border-l-4 border-l-red-500" : ""}`}
               >
-                <div className="flex items-center gap-3 min-w-0">
+                <div className="flex items-center gap-2 sm:gap-3 min-w-0 flex-1">
                   {announcement.priority === "high" ? (
-                    <AlertCircle className="h-5 w-5 text-red-600 shrink-0" />
+                    <AlertCircle className="h-4 w-4 sm:h-5 sm:w-5 text-red-600 shrink-0" />
                   ) : announcement.type === "event" ? (
-                    <Calendar className="h-5 w-5 text-primary shrink-0" />
+                    <Calendar className="h-4 w-4 sm:h-5 sm:w-5 text-primary shrink-0" />
                   ) : announcement.type === "reminder" ? (
-                    <Clock className="h-5 w-5 text-warning shrink-0" />
+                    <Clock className="h-4 w-4 sm:h-5 sm:w-5 text-warning shrink-0" />
                   ) : (
-                    <Bell className="h-5 w-5 text-muted-foreground shrink-0" />
+                    <Bell className="h-4 w-4 sm:h-5 sm:w-5 text-muted-foreground shrink-0" />
                   )}
-                  <div className="min-w-0">
-                    <h4 className="font-medium text-foreground truncate">{announcement.title}</h4>
-                    <p className="text-sm text-muted-foreground">{timeAgo(announcement.createdAt)} • {announcement.priority} priority</p>
+                  <div className="min-w-0 flex-1">
+                    <h4 className="font-medium text-foreground text-sm truncate">{announcement.title}</h4>
+                    <p className="text-xs text-muted-foreground">{timeAgo(announcement.createdAt)} • {announcement.priority} priority</p>
                   </div>
                 </div>
-                <div className="flex items-center gap-2 ml-3">
-                  <Badge className={tagClasses(announcement.type as Tag)}>{announcement.type}</Badge>
+                <div className="flex items-center gap-2 ml-2">
+                  <Badge className={`${tagClasses(announcement.type as Tag)} text-xs`}>{announcement.type}</Badge>
                   {announcement.commentCount && announcement.commentCount > 0 && (
                     <div className="flex items-center gap-1 text-xs text-muted-foreground">
                       <MessageCircle className="h-3 w-3" />
@@ -763,25 +763,25 @@ export const ParentDashboard = ({ onNavigate }: ParentDashboardProps) => {
 
       {/* Garden Section */}
       <Card>
-        <CardHeader className="flex flex-row items-center justify-between">
-          <CardTitle className="flex items-center space-x-2">
+        <CardHeader className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 p-3 sm:p-4">
+          <CardTitle className="flex items-center space-x-2 text-base sm:text-lg">
             <Sprout className="h-5 w-5 text-emerald-600" />
             <span>My Children's Garden</span>
           </CardTitle>
-          <Button variant="outline" size="sm" onClick={() => onNavigate("parentGarden")}>
+          <Button variant="outline" size="sm" onClick={() => onNavigate("parentGarden")} className="h-8 text-xs">
             View Garden
           </Button>
         </CardHeader>
-        <CardContent>
-          <div className="text-center py-6">
-            <div className="w-16 h-16 mx-auto mb-4 bg-emerald-100 rounded-full flex items-center justify-center">
-              <Sprout className="h-8 w-8 text-emerald-600" />
+        <CardContent className="p-3 sm:p-4">
+          <div className="text-center py-4 sm:py-6">
+            <div className="w-12 h-12 sm:w-16 sm:h-16 mx-auto mb-3 sm:mb-4 bg-emerald-100 rounded-full flex items-center justify-center">
+              <Sprout className="h-6 w-6 sm:h-8 sm:w-8 text-emerald-600" />
             </div>
-            <h3 className="text-lg font-medium text-foreground mb-2">Watch Your Children Grow!</h3>
-            <p className="text-sm text-muted-foreground mb-4">
+            <h3 className="text-base sm:text-lg font-medium text-foreground mb-2">Watch Your Children Grow!</h3>
+            <p className="text-xs sm:text-sm text-muted-foreground mb-3 sm:mb-4">
               See your children's learning progress and how their class is performing together.
             </p>
-            <Button onClick={() => onNavigate("parentGarden")} className="bg-emerald-600 hover:bg-emerald-700">
+            <Button onClick={() => onNavigate("parentGarden")} className="bg-emerald-600 hover:bg-emerald-700 h-10 text-sm">
               <Sprout className="h-4 w-4 mr-2" />
               Explore Garden
             </Button>

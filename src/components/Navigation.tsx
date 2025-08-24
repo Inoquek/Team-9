@@ -1,5 +1,5 @@
 import { Button } from "@/components/ui/button";
-import { BookOpen, Home, Bell, LogOut, User, Heart, Star, TrendingUp, Sprout, MessageSquare } from "lucide-react"; // 添加MessageSquare
+import { BookOpen, Home, Bell, LogOut, User, Heart, Star, TrendingUp, Sprout, MessageSquare, Menu } from "lucide-react"; // 添加MessageSquare
 import { LanguageSelector } from "@/components/LanguageSelector";
 
 import { useAuth } from "@/contexts/AuthContext";
@@ -28,7 +28,7 @@ interface AppSidebarProps {
 
 
 export const AppSidebar = ({ user, currentPage, onNavigate }: AppSidebarProps) => {
-  const { state } = useSidebar();
+  const { state, isMobile, openMobile, setOpenMobile } = useSidebar();
   const { signOut } = useAuth();
   const isCollapsed = state === "collapsed";
 
@@ -82,21 +82,29 @@ export const AppSidebar = ({ user, currentPage, onNavigate }: AppSidebarProps) =
     }
   };
 
+  const handleNavigation = (page: typeof currentPage) => {
+    onNavigate(page);
+    // Close mobile sidebar after navigation
+    if (isMobile) {
+      setOpenMobile(false);
+    }
+  };
+
   return (
     <Sidebar collapsible="icon">
       {/* Header with Logo */}
-      <SidebarHeader className="border-b border-border p-4">
-        <div className="flex items-center space-x-3">
+      <SidebarHeader className="border-b border-border p-3 sm:p-4">
+        <div className="flex items-center space-x-2 sm:space-x-3">
           <div className="relative flex-shrink-0">
-            <BookOpen className="h-8 w-8 text-primary" />
-            <Heart className="h-3 w-3 text-destructive absolute -top-0.5 -right-0.5" />
+            <BookOpen className="h-6 w-6 sm:h-8 sm:w-8 text-primary" />
+            <Heart className="h-2 w-2 sm:h-3 sm:w-3 text-destructive absolute -top-0.5 -right-0.5" />
           </div>
           {!isCollapsed && (
             <div className="min-w-0">
-              <h1 className="text-lg font-bold bg-gradient-to-r from-primary to-accent bg-clip-text text-transparent truncate">
+              <h1 className="text-base sm:text-lg font-bold bg-gradient-to-r from-primary to-accent bg-clip-text text-transparent truncate">
                 KindyReach
               </h1>
-              <p className="text-xs text-muted-foreground">Learning Platform</p>
+              <p className="text-xs text-muted-foreground hidden sm:block">Learning Platform</p>
             </div>
           )}
         </div>
@@ -113,16 +121,15 @@ export const AppSidebar = ({ user, currentPage, onNavigate }: AppSidebarProps) =
               {navigationItems.map((item) => (
                 <SidebarMenuItem key={item.page}>
                   <SidebarMenuButton
-                    onClick={() => {
-                      onNavigate(item.page);
-                    }}
+                    onClick={() => handleNavigation(item.page)}
                     isActive={currentPage === item.page}
-                    className="w-full justify-start"
+                    className="w-full justify-start h-12 sm:h-10"
+                    size="lg"
                   >
-                    <item.icon className="h-4 w-4" />
+                    <item.icon className="h-5 w-5 sm:h-4 sm:w-4" />
                     {!isCollapsed && (
                       <>
-                        <span>{item.title}</span>
+                        <span className="text-sm sm:text-sm">{item.title}</span>
                       </>
                     )}
                   </SidebarMenuButton>
@@ -134,11 +141,11 @@ export const AppSidebar = ({ user, currentPage, onNavigate }: AppSidebarProps) =
       </SidebarContent>
 
       {/* Footer with User Info and Logout */}
-      <SidebarFooter className="border-t border-border p-4">
+      <SidebarFooter className="border-t border-border p-3 sm:p-4">
         {!isCollapsed && (
           <div className="space-y-3">
             {/* User Info */}
-            <div className="flex items-center space-x-3">
+            <div className="flex items-center space-x-2 sm:space-x-3">
               <div className="flex-shrink-0">
                 <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center">
                   <User className="h-4 w-4 text-primary" />
@@ -158,7 +165,7 @@ export const AppSidebar = ({ user, currentPage, onNavigate }: AppSidebarProps) =
               variant="outline"
               size="sm"
               onClick={handleLogout}
-              className="w-full justify-start"
+              className="w-full justify-start h-10"
             >
               <LogOut className="h-4 w-4 mr-2" />
               Logout
@@ -175,7 +182,7 @@ export const AppSidebar = ({ user, currentPage, onNavigate }: AppSidebarProps) =
               variant="outline"
               size="sm"
               onClick={handleLogout}
-              className="w-full p-2"
+              className="w-full p-2 h-10"
             >
               <LogOut className="h-4 w-4" />
             </Button>
@@ -192,12 +199,13 @@ interface TopBarProps {
 
 export const TopBar = ({ user }: TopBarProps) => {
   const { isTranslating } = useLanguage();
+  const { isMobile, openMobile, setOpenMobile } = useSidebar();
   
   return (
-    <header className="h-12 flex items-center border-b border-border bg-card px-4">
-      <SidebarTrigger className="mr-4" />
-      <div className="flex-1">
-        <h2 className="text-lg font-semibold text-foreground">
+    <header className="h-14 sm:h-12 flex items-center border-b border-border bg-card px-3 sm:px-4">
+      <SidebarTrigger className="mr-3 sm:mr-4 h-8 w-8 sm:h-7 sm:w-7" />
+      <div className="flex-1 min-w-0">
+        <h2 className="text-base sm:text-lg font-semibold text-foreground truncate">
           {user.role === "parent" ? "Parent Portal" : 
            user.role === "teacher" ? "Teacher Dashboard" : 
            "Admin Dashboard"}
@@ -206,7 +214,7 @@ export const TopBar = ({ user }: TopBarProps) => {
       
       {/* Translation Indicator */}
       {isTranslating && (
-        <div className="mr-3 text-xs text-blue-600 bg-blue-50 px-2 py-1 rounded">
+        <div className="mr-2 sm:mr-3 text-xs text-blue-600 bg-blue-50 px-2 py-1 rounded hidden sm:block">
           Translating...
         </div>
       )}

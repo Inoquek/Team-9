@@ -145,22 +145,22 @@ export const LoginPage = () => {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-primary/20 via-secondary/20 to-accent/20 flex items-center justify-center p-4">
-      <div className="w-full max-w-md space-y-6">
+    <div className="min-h-screen bg-gradient-to-br from-primary/20 via-secondary/20 to-accent/20 flex items-center justify-center p-3 sm:p-4">
+      <div className="w-full max-w-sm sm:max-w-md space-y-4 sm:space-y-6">
         {/* Logo and branding */}
-        <div className="text-center space-y-4">
+        <div className="text-center space-y-3 sm:space-y-4">
           <div className="flex justify-center items-center space-x-2">
             <div className="relative">
-              <BookOpen className="h-12 w-12 text-primary" />
-              <Heart className="h-4 w-4 text-destructive absolute -top-1 -right-1" />
+              <BookOpen className="h-10 w-10 sm:h-12 sm:w-12 text-primary" />
+              <Heart className="h-3 w-3 sm:h-4 sm:w-4 text-destructive absolute -top-1 -right-1" />
             </div>
-            <Star className="h-8 w-8 text-warning animate-pulse" />
+            <Star className="h-6 w-6 sm:h-8 sm:w-8 text-warning animate-pulse" />
           </div>
           <div>
-            <h1 className="text-3xl font-bold bg-gradient-to-r from-primary to-accent bg-clip-text text-transparent">
+            <h1 className="text-2xl sm:text-3xl font-bold bg-gradient-to-r from-primary to-accent bg-clip-text text-transparent">
               KindyReach
             </h1>
-            <p className="text-muted-foreground mt-2">
+            <p className="text-sm sm:text-base text-muted-foreground mt-2">
               Empowering parents in their child's learning journey
             </p>
           </div>
@@ -168,18 +168,18 @@ export const LoginPage = () => {
 
         {/* Login/Signup Form */}
         <Card className="border-2 shadow-lg">
-          <CardHeader className="text-center pb-4">
-            <CardTitle className="text-xl text-foreground">
+          <CardHeader className="text-center pb-3 sm:pb-4">
+            <CardTitle className="text-lg sm:text-xl text-foreground">
               {isSignUp ? "Create Account" : "Welcome Back!"}
             </CardTitle>
-            <p className="text-sm text-muted-foreground mt-2">
+            <p className="text-xs sm:text-sm text-muted-foreground mt-2">
               {isSignUp 
                 ? "Create your account once, stay logged in forever!" 
                 : "You'll stay logged in permanently"
               }
             </p>
           </CardHeader>
-          <CardContent>
+          <CardContent className="px-4 sm:px-6 pb-6">
             <form onSubmit={handleSubmit} className="space-y-4">
               {/* Role Selection */}
               <div className="space-y-2">
@@ -189,28 +189,37 @@ export const LoginPage = () => {
                     type="button"
                     variant={role === "parent" ? "default" : "outline"}
                     onClick={() => setRole("parent")}
-                    className="h-12"
+                    className="h-10 sm:h-12 text-xs sm:text-sm"
                     disabled={isLoading}
                   >
-                    👨‍👩‍👧‍👦 Parent
+                    <span className="hidden sm:inline">👨‍👩‍👧‍👦</span>
+                    <span className="sm:hidden">👨‍👩‍👧‍👦</span>
+                    <span className="hidden sm:inline"> Parent</span>
+                    <span className="sm:hidden">P</span>
                   </Button>
                   <Button
                     type="button"
                     variant={role === "teacher" ? "default" : "outline"}
                     onClick={() => setRole("teacher")}
-                    className="h-12"
+                    className="h-10 sm:h-12 text-xs sm:text-sm"
                     disabled={isLoading}
                   >
-                    👩‍🏫 Teacher
+                    <span className="hidden sm:inline">👩‍🏫</span>
+                    <span className="sm:hidden">👩‍🏫</span>
+                    <span className="hidden sm:inline"> Teacher</span>
+                    <span className="sm:hidden">T</span>
                   </Button>
                   <Button
                     type="button"
                     variant={role === "admin" ? "default" : "outline"}
                     onClick={() => setRole("admin")}
-                    className="h-12"
+                    className="h-10 sm:h-12 text-xs sm:text-sm"
                     disabled={isLoading}
                   >
-                    👨‍💻 Admin
+                    <span className="hidden sm:inline">👨‍💻</span>
+                    <span className="sm:hidden">👨‍💻</span>
+                    <span className="hidden sm:inline"> Admin</span>
+                    <span className="sm:hidden">A</span>
                   </Button>
                 </div>
               </div>
@@ -226,7 +235,7 @@ export const LoginPage = () => {
                     value={displayName}
                     onChange={(e) => setDisplayName(e.target.value)}
                     required
-                    className="h-12"
+                    className="h-10 sm:h-12"
                     disabled={isLoading}
                   />
                 </div>
@@ -244,7 +253,7 @@ export const LoginPage = () => {
                     value={username}
                     onChange={(e) => handleUsernameChange(e.target.value)}
                     required
-                    className="h-12 pl-10"
+                    className="h-10 sm:h-12 pl-10"
                     disabled={isLoading}
                   />
                 </div>
@@ -269,7 +278,7 @@ export const LoginPage = () => {
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   required
-                  className="h-12"
+                  className="h-10 sm:h-12"
                   disabled={isLoading}
                 />
               </div>
@@ -277,7 +286,7 @@ export const LoginPage = () => {
               {/* Submit Button */}
               <Button 
                 type="submit" 
-                className="w-full h-12 text-lg font-semibold"
+                className="w-full h-10 sm:h-12 text-base sm:text-lg font-semibold"
                 disabled={isLoading || !!usernameError}
               >
                 {isLoading ? (
@@ -292,7 +301,7 @@ export const LoginPage = () => {
             </form>
 
             {/* Toggle Sign Up/Login */}
-            <div className="mt-6 text-center">
+            <div className="mt-4 sm:mt-6 text-center">
               <Button
                 variant="link"
                 onClick={() => setIsSignUp(!isSignUp)}
@@ -307,7 +316,7 @@ export const LoginPage = () => {
             </div>
 
             {/* Permanent Login Notice */}
-            <div className="mt-4 p-3 bg-blue-50 border border-blue-200 rounded-lg">
+            <div className="mt-3 sm:mt-4 p-3 bg-blue-50 border border-blue-200 rounded-lg">
               <div className="flex items-center space-x-2 text-blue-800">
                 <Star className="h-4 w-4" />
                 <span className="text-sm font-medium">Permanent Login</span>
@@ -318,15 +327,15 @@ export const LoginPage = () => {
             </div>
 
             {/* Temporary Admin Creation Button - REMOVE AFTER USE */}
-            <div className="mt-6 p-4 bg-yellow-50 border border-yellow-200 rounded-lg">
+            <div className="mt-4 sm:mt-6 p-3 sm:p-4 bg-yellow-50 border border-yellow-200 rounded-lg">
               <div className="text-center">
-                <p className="text-sm text-yellow-800 mb-3">
+                <p className="text-xs sm:text-sm text-yellow-800 mb-3">
                   <strong>Development Only:</strong> Create first admin account
                 </p>
                 <Button
                   onClick={createFirstAdmin}
                   variant="outline"
-                  className="w-full"
+                  className="w-full h-10"
                 >
                   🛠️ Create First Admin Account
                 </Button>
@@ -336,7 +345,7 @@ export const LoginPage = () => {
               </div>
             </div>
 
-            <Button onClick={testUsernameLookup} variant="outline" className="mt-2">
+            <Button onClick={testUsernameLookup} variant="outline" className="mt-2 w-full h-10">
               🔍 Debug Username Lookup
             </Button>
           </CardContent>

@@ -239,14 +239,14 @@ export const TeacherDashboard = ({ onNavigate }: TeacherDashboardProps) => {
   };
 
   return (
-    <div className="flex gap-6">
+    <div className="flex flex-col lg:flex-row gap-4 sm:gap-6">
       {/* Sidebar with Classes */}
-      <div className="w-64 flex-shrink-0">
+      <div className="w-full lg:w-64 flex-shrink-0 order-2 lg:order-1">
         <Card>
-          <CardHeader>
-            <CardTitle className="text-lg">My Classes</CardTitle>
+          <CardHeader className="p-3 sm:p-4">
+            <CardTitle className="text-base sm:text-lg">My Classes</CardTitle>
           </CardHeader>
-          <CardContent className="space-y-2">
+          <CardContent className="space-y-2 p-3 sm:p-4">
             {isLoadingClasses ? (
               <div className="text-center py-4 text-muted-foreground">
                 <p>Loading classes...</p>
@@ -260,14 +260,14 @@ export const TeacherDashboard = ({ onNavigate }: TeacherDashboardProps) => {
                 <Button
                   key={cls.id}
                   variant={selectedClass?.id === cls.id ? "default" : "ghost"}
-                  className="w-full justify-between"
+                  className="w-full justify-between h-auto py-3 px-3"
                   onClick={() => setSelectedClass(cls)}
                 >
-                  <div className="text-left">
-                    <p className="font-medium">{cls.name}</p>
+                  <div className="text-left min-w-0 flex-1">
+                    <p className="font-medium text-sm truncate">{cls.name}</p>
                     <p className="text-xs text-muted-foreground">Grade {cls.grade}</p>
                   </div>
-                  <div className="flex items-center space-x-2">
+                  <div className="flex items-center space-x-2 ml-2">
                     <Badge variant="secondary" className="text-xs">
                       {cls.studentCount} students
                     </Badge>
@@ -281,13 +281,13 @@ export const TeacherDashboard = ({ onNavigate }: TeacherDashboardProps) => {
       </div>
 
       {/* Main Content */}
-      <div className="flex-1 space-y-6">
+      <div className="flex-1 space-y-4 sm:space-y-6 order-1 lg:order-2">
         {/* Welcome Section */}
-        <div className="bg-gradient-to-r from-primary/10 to-accent/10 rounded-2xl p-6">
-          <h1 className="text-2xl font-bold text-foreground mb-2">
+        <div className="bg-gradient-to-r from-primary/10 to-accent/10 rounded-xl sm:rounded-2xl p-4 sm:p-6">
+          <h1 className="text-xl sm:text-2xl font-bold text-foreground mb-2">
             Welcome back, {user?.displayName || 'Teacher'}! 👩‍🏫
           </h1>
-          <p className="text-muted-foreground">
+          <p className="text-sm sm:text-base text-muted-foreground">
             {selectedClass ? (
               <>
                 Your <strong>{selectedClass.name}</strong> class is doing great! Here's what's happening today.
@@ -301,12 +301,12 @@ export const TeacherDashboard = ({ onNavigate }: TeacherDashboardProps) => {
         {/* Class Selection Notice */}
         {!selectedClass && (
           <Card className="border-l-4 border-l-warning">
-            <CardContent className="p-4">
-              <div className="flex items-center space-x-3">
-                <BookOpen className="h-8 w-8 text-warning" />
+            <CardContent className="p-3 sm:p-4">
+              <div className="flex items-center space-x-2 sm:space-x-3">
+                <BookOpen className="h-6 w-6 sm:h-8 sm:w-8 text-warning" />
                 <div>
-                  <p className="font-medium">No Class Selected</p>
-                  <p className="text-sm text-muted-foreground">
+                  <p className="font-medium text-sm sm:text-base">No Class Selected</p>
+                  <p className="text-xs sm:text-sm text-muted-foreground">
                     Please select a class from the sidebar to view class-specific information and manage assignments.
                   </p>
                 </div>
@@ -317,22 +317,22 @@ export const TeacherDashboard = ({ onNavigate }: TeacherDashboardProps) => {
 
         {/* Quick Actions - Only show when class is selected and on dashboard view */}
         {selectedClass && currentView === 'dashboard' && (
-          <div className="flex flex-wrap gap-3">
+          <div className="flex flex-wrap gap-2 sm:gap-3">
             <Button 
-              className="flex items-center space-x-2"
+              className="flex items-center space-x-2 h-10 sm:h-10"
               onClick={() => setCurrentView('createAssignment')}
             >
               <Plus className="h-4 w-4" />
-              <span>New Assignment</span>
+              <span className="text-sm sm:text-base">New Assignment</span>
             </Button>
 
             <Button 
               variant="outline" 
-              className="flex items-center space-x-2"
+              className="flex items-center space-x-2 h-10 sm:h-10"
               onClick={() => setCurrentView('createAnnouncement')}
             >
               <Bell className="h-4 w-4" />
-              <span>New Announcement</span>
+              <span className="text-sm sm:text-base">New Announcement</span>
             </Button>
           </div>
         )}
@@ -340,8 +340,8 @@ export const TeacherDashboard = ({ onNavigate }: TeacherDashboardProps) => {
         {/* Content Area */}
         <Card>
           {getViewTitle() ? (
-            <CardHeader>
-              <CardTitle className="flex items-center justify-between">
+            <CardHeader className="p-3 sm:p-4">
+              <CardTitle className="flex items-center justify-between text-base sm:text-lg">
                 <span>{getViewTitle()}</span>
                 {currentView !== 'dashboard' && (
                   <Button
@@ -357,7 +357,7 @@ export const TeacherDashboard = ({ onNavigate }: TeacherDashboardProps) => {
             </CardHeader>
           ) : currentView !== 'dashboard' ? (
             // Show just the close button when there's no title
-            <CardHeader className="pb-2">
+            <CardHeader className="pb-2 p-3 sm:p-4">
               <div className="flex justify-end">
                 <Button
                   variant="ghost"
@@ -370,7 +370,7 @@ export const TeacherDashboard = ({ onNavigate }: TeacherDashboardProps) => {
               </div>
             </CardHeader>
           ) : null}
-          <CardContent>
+          <CardContent className="p-3 sm:p-4">
             {currentView === 'createAssignment' && selectedClass ? (
               <AssignmentCreation 
                 classId={selectedClass.id}
@@ -389,52 +389,52 @@ export const TeacherDashboard = ({ onNavigate }: TeacherDashboardProps) => {
               <>
                 {/* Dashboard Content - Only show when class is selected */}
                 {selectedClass ? (
-                  <div className="space-y-6">
+                  <div className="space-y-4 sm:space-y-6">
                     {/* Class Statistics */}
-                    <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                    <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
                       <Card className="border-l-4 border-l-primary">
-                        <CardContent className="p-4">
-                          <div className="flex items-center space-x-3">
-                            <Users className="h-8 w-8 text-primary" />
-                            <div>
-                              <p className="text-2xl font-bold">{classStats.totalStudents}</p>
-                              <p className="text-sm text-muted-foreground">Total Students</p>
+                        <CardContent className="p-3 sm:p-4">
+                          <div className="flex items-center space-x-2 sm:space-x-3">
+                            <Users className="h-6 w-6 sm:h-8 sm:w-8 text-primary" />
+                            <div className="min-w-0">
+                              <p className="text-lg sm:text-2xl font-bold">{classStats.totalStudents}</p>
+                              <p className="text-xs sm:text-sm text-muted-foreground">Total Students</p>
                             </div>
                           </div>
                         </CardContent>
                       </Card>
 
                       <Card className="border-l-4 border-l-success">
-                        <CardContent className="p-4">
-                          <div className="flex items-center space-x-3">
-                            <BookOpen className="h-8 w-8 text-success" />
-                            <div>
-                              <p className="text-2xl font-bold">{classStats.activeAssignments}</p>
-                              <p className="text-sm text-muted-foreground">Active Assignments</p>
+                        <CardContent className="p-3 sm:p-4">
+                          <div className="flex items-center space-x-2 sm:space-x-3">
+                            <BookOpen className="h-6 w-6 sm:h-8 sm:w-8 text-success" />
+                            <div className="min-w-0">
+                              <p className="text-lg sm:text-2xl font-bold">{classStats.activeAssignments}</p>
+                              <p className="text-xs sm:text-sm text-muted-foreground">Active Assignments</p>
                             </div>
                           </div>
                         </CardContent>
                       </Card>
 
                       <Card className="border-l-4 border-l-warning">
-                        <CardContent className="p-4">
-                          <div className="flex items-center space-x-3">
-                            <Bell className="h-8 w-8 text-warning" />
-                            <div>
-                              <p className="text-2xl font-bold">{classStats.totalAnnouncements}</p>
-                              <p className="text-sm text-muted-foreground">Announcements</p>
+                        <CardContent className="p-3 sm:p-4">
+                          <div className="flex items-center space-x-2 sm:space-x-3">
+                            <Bell className="h-6 w-6 sm:h-8 sm:w-8 text-warning" />
+                            <div className="min-w-0">
+                              <p className="text-lg sm:text-2xl font-bold">{classStats.totalAnnouncements}</p>
+                              <p className="text-xs sm:text-sm text-muted-foreground">Announcements</p>
                             </div>
                           </div>
                         </CardContent>
                       </Card>
 
                       <Card className="border-l-4 border-l-accent">
-                        <CardContent className="p-4">
-                          <div className="flex items-center space-x-3">
-                            <BarChart3 className="h-8 w-8 text-accent" />
-                            <div>
-                              <p className="text-2xl font-bold">{classStats.parentEngagement}%</p>
-                              <p className="text-sm text-muted-foreground">Parent Engagement</p>
+                        <CardContent className="p-3 sm:p-4">
+                          <div className="flex items-center space-x-2 sm:space-x-3">
+                            <BarChart3 className="h-6 w-6 sm:h-8 sm:w-8 text-accent" />
+                            <div className="min-w-0">
+                              <p className="text-lg sm:text-2xl font-bold">{classStats.parentEngagement}%</p>
+                              <p className="text-xs sm:text-sm text-muted-foreground">Parent Engagement</p>
                             </div>
                           </div>
                         </CardContent>
@@ -442,35 +442,35 @@ export const TeacherDashboard = ({ onNavigate }: TeacherDashboardProps) => {
                     </div>
 
                     {/* Quick Navigation */}
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
                       <Card className="cursor-pointer hover:shadow-lg transition-shadow" onClick={() => onNavigate("assignments")}>
-                        <CardHeader>
-                          <CardTitle className="flex items-center space-x-2">
-                            <BookOpen className="h-5 w-5 text-primary" />
+                        <CardHeader className="p-3 sm:p-4">
+                          <CardTitle className="flex items-center space-x-2 text-sm sm:text-base">
+                            <BookOpen className="h-4 w-4 sm:h-5 sm:w-5 text-primary" />
                             <span>Manage Assignments</span>
                           </CardTitle>
                         </CardHeader>
-                        <CardContent>
-                          <p className="text-muted-foreground">Create, edit, and track student assignments</p>
+                        <CardContent className="p-3 sm:p-4 pt-0">
+                          <p className="text-xs sm:text-sm text-muted-foreground">Create, edit, and track student assignments</p>
                           <div className="mt-3 flex space-x-2">
-                            <Badge variant="secondary">{classStats.activeAssignments} Active</Badge>
-                            <Badge variant="outline">View All</Badge>
+                            <Badge variant="secondary" className="text-xs">{classStats.activeAssignments} Active</Badge>
+                            <Badge variant="outline" className="text-xs">View All</Badge>
                           </div>
                         </CardContent>
                       </Card>
 
                       <Card className="cursor-pointer hover:shadow-lg transition-shadow" onClick={() => onNavigate("announcements")}>
-                        <CardHeader>
-                          <CardTitle className="flex items-center space-x-2">
-                            <Bell className="h-5 w-5 text-warning" />
+                        <CardHeader className="p-3 sm:p-4">
+                          <CardTitle className="flex items-center space-x-2 text-sm sm:text-base">
+                            <Bell className="h-4 w-4 sm:h-5 sm:w-5 text-warning" />
                             <span>Announcements</span>
                           </CardTitle>
                         </CardHeader>
-                        <CardContent>
-                          <p className="text-muted-foreground">Share updates and reminders with parents</p>
+                        <CardContent className="p-3 sm:p-4 pt-0">
+                          <p className="text-xs sm:text-sm text-muted-foreground">Share updates and reminders with parents</p>
                           <div className="mt-3 flex space-x-2">
-                            <Badge variant="secondary">{classStats.totalAnnouncements} Total</Badge>
-                            <Badge variant="outline">View All</Badge>
+                            <Badge variant="secondary" className="text-xs">{classStats.totalAnnouncements} Total</Badge>
+                            <Badge variant="outline" className="text-xs">View All</Badge>
                           </div>
                         </CardContent>
                       </Card>
@@ -478,13 +478,13 @@ export const TeacherDashboard = ({ onNavigate }: TeacherDashboardProps) => {
 
                     {/* Recent Activity */}
                     <Card>
-                      <CardHeader>
-                        <CardTitle className="flex items-center space-x-2">
-                          <Calendar className="h-5 w-5 text-accent" />
+                      <CardHeader className="p-3 sm:p-4">
+                        <CardTitle className="flex items-center space-x-2 text-sm sm:text-base">
+                          <Calendar className="h-4 w-4 sm:h-5 sm:w-5 text-accent" />
                           <span>Recent Activity - {selectedClass.name}</span>
                         </CardTitle>
                       </CardHeader>
-                      <CardContent className="space-y-3">
+                      <CardContent className="space-y-2 sm:space-y-3 p-3 sm:p-4">
                         {isLoadingData ? (
                           <div className="text-center py-4 text-muted-foreground">
                             <p>Loading recent activity...</p>
@@ -492,17 +492,17 @@ export const TeacherDashboard = ({ onNavigate }: TeacherDashboardProps) => {
                         ) : recentActivity.length === 0 ? (
                           <div className="text-center py-4 text-muted-foreground">
                             <p>No recent activity yet</p>
-                            <p className="text-sm">Create assignments and announcements to see activity here</p>
+                            <p className="text-xs sm:text-sm">Create assignments and announcements to see activity here</p>
                           </div>
                         ) : (
                           recentActivity.map((activity, index) => (
-                            <div key={index} className="flex items-center space-x-3 p-3 rounded-lg bg-muted/50">
+                            <div key={index} className="flex items-center space-x-2 sm:space-x-3 p-2 sm:p-3 rounded-lg bg-muted/50">
                               <div className={`w-2 h-2 rounded-full flex-shrink-0 ${
                                 activity.type === 'assignment' ? 'bg-blue-500' : 'bg-amber-500'
                               }`}></div>
-                              <div className="flex-1">
-                                <p className="font-medium text-foreground">{activity.title}</p>
-                                <p className="text-sm text-muted-foreground">
+                              <div className="flex-1 min-w-0">
+                                <p className="font-medium text-foreground text-sm truncate">{activity.title}</p>
+                                <p className="text-xs text-muted-foreground">
                                   {activity.type === 'assignment' ? 'Assignment created' : 'Announcement posted'}
                                 </p>
                               </div>
@@ -514,10 +514,10 @@ export const TeacherDashboard = ({ onNavigate }: TeacherDashboardProps) => {
                     </Card>
                   </div>
                 ) : (
-                  <div className="text-center py-8 text-muted-foreground">
-                    <BookOpen className="h-12 w-12 mx-auto mb-3 opacity-50" />
-                    <p className="text-lg">Select a class to view details and manage your students</p>
-                    <p className="text-sm">Choose from the classes in the sidebar to get started</p>
+                  <div className="text-center py-6 sm:py-8 text-muted-foreground">
+                    <BookOpen className="h-10 w-10 sm:h-12 sm:w-12 mx-auto mb-3 opacity-50" />
+                    <p className="text-base sm:text-lg">Select a class to view details and manage your students</p>
+                    <p className="text-xs sm:text-sm">Choose from the classes in the sidebar to get started</p>
                   </div>
                 )}
               </>

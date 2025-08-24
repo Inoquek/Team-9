@@ -52,6 +52,19 @@ This project is built with:
 - shadcn-ui
 - Tailwind CSS
 
+## Mobile Responsiveness
+
+This application is fully responsive and follows a **mobile-first** design approach. Key features include:
+
+- 📱 **Mobile-first design** - Optimized for mobile devices first, then enhanced for larger screens
+- 🎯 **Touch-friendly interfaces** - All interactive elements meet minimum touch target requirements (44px × 44px)
+- 📐 **Responsive layouts** - Adaptive grid systems and flexible layouts that work on all screen sizes
+- 🎨 **Responsive typography** - Text that scales appropriately for different devices
+- 🚀 **Performance optimized** - Mobile-optimized loading states and interactions
+- ♿ **Accessibility focused** - Mobile-optimized accessibility features
+
+For detailed information about the mobile responsiveness implementation, see [MOBILE_RESPONSIVENESS.md](./MOBILE_RESPONSIVENESS.md).
+
 ## How can I deploy this project?
 
 Simply open [Lovable](https://lovable.dev/projects/da22fca9-ed3c-48a1-ab25-bf0c12718bdf) and click on Share -> Publish.

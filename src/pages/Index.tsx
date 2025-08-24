@@ -61,8 +61,8 @@ const Index = () => {
           <div className="flex-1 flex flex-col">
             <TopBar user={user} />
             
-            <main className="flex-1 p-6 overflow-auto">
-              <div className="max-w-7xl mx-auto">
+            <main className="flex-1 p-3 sm:p-4 md:p-6 overflow-auto">
+              <div className="max-w-7xl mx-auto w-full">
                 {currentPage === "dashboard" && (
                   <>
                     {user.role === "parent" ? (

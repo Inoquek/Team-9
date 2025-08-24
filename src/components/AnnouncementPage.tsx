@@ -334,9 +334,9 @@ export const AnnouncementPage = ({ userRole }: AnnouncementPageProps) => {
 
   if (isLoading) {
     return (
-      <div className="space-y-6">
-        <div className="text-center py-12">
-          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto mb-4"></div>
+      <div className="space-y-4 sm:space-y-6">
+        <div className="text-center py-8 sm:py-12">
+          <div className="animate-spin rounded-full h-6 w-6 sm:h-8 sm:w-8 border-b-2 border-primary mx-auto mb-4"></div>
           <p className="text-muted-foreground">Loading announcements...</p>
         </div>
       </div>
@@ -344,12 +344,12 @@ export const AnnouncementPage = ({ userRole }: AnnouncementPageProps) => {
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4 sm:space-y-6">
       {/* Header */}
-      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+      <div className="flex flex-col gap-4">
         <div>
-          <h1 className="text-3xl font-bold text-foreground">Announcements</h1>
-          <p className="text-muted-foreground mt-1">
+          <h1 className="text-xl sm:text-2xl lg:text-3xl font-bold text-foreground">Announcements</h1>
+          <p className="text-sm sm:text-base text-muted-foreground mt-1">
             {userRole === "parent" 
               ? "Stay updated with class news and important information"
               : "Share updates and important information with parents"
@@ -358,10 +358,10 @@ export const AnnouncementPage = ({ userRole }: AnnouncementPageProps) => {
         </div>
 
         {/* Controls */}
-        <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 w-full sm:w-auto">
-          <div className="relative flex-1 sm:flex-none">
+        <div className="flex flex-col gap-3">
+          <div className="relative flex-1">
             <Input
-              className="pl-9"
+              className="pl-9 mobile-input"
               placeholder="Search announcements..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
@@ -369,61 +369,60 @@ export const AnnouncementPage = ({ userRole }: AnnouncementPageProps) => {
             <Search className="h-4 w-4 absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
           </div>
 
-          <Select value={filterType} onValueChange={(value) => setFilterType(value)}>
-            <SelectTrigger className="w-40">
-              <SelectValue placeholder="Filter by type" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">All Types</SelectItem>
-              <SelectItem value="event">Events</SelectItem>
-              <SelectItem value="reminder">Reminders</SelectItem>
-              <SelectItem value="activity">Activities</SelectItem>
-              <SelectItem value="policy">Policy</SelectItem>
-              <SelectItem value="general">General</SelectItem>
-            </SelectContent>
-          </Select>
-
+          <div className="flex flex-col sm:flex-row gap-2 sm:gap-3">
+            <Select value={filterType} onValueChange={(value) => setFilterType(value)}>
+              <SelectTrigger className="w-full sm:w-40 mobile-input">
+                <SelectValue placeholder="Filter by type" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Types</SelectItem>
+                <SelectItem value="event">Events</SelectItem>
+                <SelectItem value="reminder">Reminders</SelectItem>
+                <SelectItem value="activity">Activities</SelectItem>
+                <SelectItem value="policy">Policy</SelectItem>
+                <SelectItem value="general">General</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
         </div>
       </div>
 
       {/* Announcement Stats (Teacher only) */}
       {userRole === "teacher" && (
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4">
           <Card className="border-l-4 border-l-primary">
-            <CardContent className="p-4">
-              <div className="flex items-center space-x-3">
-                <Bell className="h-8 w-8 text-primary" />
-                <div>
-                  <p className="text-2xl font-bold">{announcements.length}</p>
-                  <p className="text-sm text-muted-foreground">Total Announcements</p>
+            <CardContent className="p-3 sm:p-4">
+              <div className="flex items-center space-x-2 sm:space-x-3">
+                <Bell className="h-6 w-6 sm:h-8 sm:w-8 text-primary" />
+                <div className="min-w-0">
+                  <p className="text-lg sm:text-2xl font-bold">{announcements.length}</p>
+                  <p className="text-xs sm:text-sm text-muted-foreground">Total Announcements</p>
                 </div>
               </div>
             </CardContent>
           </Card>
 
-
-
           <Card className="border-l-4 border-l-warning">
-            <CardContent className="p-4">
-              <div className="flex items-center space-x-3">
-                <Pin className="h-8 w-8 text-warning" />
-                <div>
-                  <p className="text-2xl font-bold">
+            <CardContent className="p-3 sm:p-4">
+              <div className="flex items-center space-x-2 sm:space-x-3">
+                <Pin className="h-6 w-6 sm:h-8 sm:w-8 text-warning" />
+                <div className="min-w-0">
+                  <p className="text-lg sm:text-2xl font-bold">
                     {announcements.filter(a => a.priority === 'high').length}
                   </p>
-                  <p className="text-sm text-muted-foreground">High Priority</p>
+                  <p className="text-xs sm:text-sm text-muted-foreground">High Priority</p>
                 </div>
               </div>
             </CardContent>
           </Card>
 
           <Card className="border-l-4 border-l-accent">
-            <CardContent className="p-4">
-              <div className="flex items-center space-x-3">
-                <Users className="h-8 w-8 text-accent" />
-                <div>
-                  <p className="text-2xl font-bold">24</p>
-                  <p className="text-sm text-muted-foreground">Parent Recipients</p>
+            <CardContent className="p-3 sm:p-4">
+              <div className="flex items-center space-x-2 sm:space-x-3">
+                <Users className="h-6 w-6 sm:h-8 sm:w-8 text-accent" />
+                <div className="min-w-0">
+                  <p className="text-lg sm:text-2xl font-bold">24</p>
+                  <p className="text-xs sm:text-sm text-muted-foreground">Parent Recipients</p>
                 </div>
               </div>
             </CardContent>
@@ -432,34 +431,34 @@ export const AnnouncementPage = ({ userRole }: AnnouncementPageProps) => {
       )}
 
       {/* Announcements List */}
-      <div className="space-y-4">
+      <div className="space-y-3 sm:space-y-4">
         {filteredAnnouncements.map((announcement) => (
           <Card 
             key={announcement.id} 
             className="hover:shadow-lg transition-shadow cursor-pointer"
             onClick={() => setSelectedAnnouncement(announcement)}
           >
-            <CardHeader>
-              <div className="flex items-start justify-between">
-                <div className="space-y-2">
-                  <div className="flex items-center space-x-3">
-                    <CardTitle className="text-lg">{announcement.title}</CardTitle>
+            <CardHeader className="p-3 sm:p-4">
+              <div className="flex items-start justify-between gap-3">
+                <div className="space-y-2 flex-1 min-w-0">
+                  <div className="flex items-center space-x-2 sm:space-x-3">
+                    <CardTitle className="text-base sm:text-lg truncate">{announcement.title}</CardTitle>
                   </div>
-                  <div className="flex items-center space-x-3 flex-wrap">
-                    <Badge variant={getTypeColor(announcement.type)} className="flex items-center space-x-1">
+                  <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-3 flex-wrap">
+                    <Badge variant={getTypeColor(announcement.type)} className="flex items-center space-x-1 w-fit">
                       {getTypeIcon(announcement.type)}
                       <span className="capitalize">{announcement.type}</span>
                     </Badge>
                     {announcement.priority === "high" && (
-                      <Badge variant={getPriorityColor(announcement.priority)}>
+                      <Badge variant={getPriorityColor(announcement.priority)} className="w-fit">
                         High Priority
                       </Badge>
                     )}
-                    <div className="flex items-center space-x-1 text-sm text-muted-foreground">
+                    <div className="flex items-center space-x-1 text-xs sm:text-sm text-muted-foreground">
                       <Clock className="h-3 w-3" />
                       <span>{formatTimeAgo(announcement.createdAt)}</span>
                     </div>
-                    <div className="text-sm text-muted-foreground">
+                    <div className="text-xs sm:text-sm text-muted-foreground">
                       by Teacher
                     </div>
                   </div>
@@ -467,20 +466,20 @@ export const AnnouncementPage = ({ userRole }: AnnouncementPageProps) => {
 
                 {/* Action buttons for teachers and admins */}
                 {(userRole === "teacher" || userRole === "admin") && (
-                  <div className="flex items-center space-x-2" onClick={(e) => e.stopPropagation()}>
+                  <div className="flex items-center space-x-2 shrink-0" onClick={(e) => e.stopPropagation()}>
                     <AlertDialog>
                       <AlertDialogTrigger asChild>
                         <Button
                           variant="ghost"
                           size="sm"
-                          className="text-destructive hover:text-destructive hover:bg-destructive/10"
+                          className="text-destructive hover:text-destructive hover:bg-destructive/10 h-8 w-8 p-0"
                           title="Delete Announcement"
                         >
                           <Trash2 className="h-4 w-4" />
                         </Button>
                       </AlertDialogTrigger>
-                      <AlertDialogContent>
-                        <AlertDialogHeader>
+                      <AlertDialogContent className="mobile-modal">
+                        <AlertDialogHeader className="mobile-modal-header">
                           <AlertDialogTitle>Delete Announcement</AlertDialogTitle>
                           <AlertDialogDescription>
                             Are you sure you want to delete "{announcement.title}"? This action cannot be undone and will remove all associated comments.
@@ -501,10 +500,8 @@ export const AnnouncementPage = ({ userRole }: AnnouncementPageProps) => {
                 )}
               </div>
             </CardHeader>
-            <CardContent>
-              <p className="text-foreground whitespace-pre-wrap">{announcement.content}</p>
-              
-              {/* Removed read status progress bar */}
+            <CardContent className="p-3 sm:p-4 pt-0">
+              <p className="text-foreground whitespace-pre-wrap text-sm sm:text-base">{announcement.content}</p>
             </CardContent>
           </Card>
         ))}
@@ -512,17 +509,17 @@ export const AnnouncementPage = ({ userRole }: AnnouncementPageProps) => {
 
       {filteredAnnouncements.length === 0 && (
         <Card>
-          <CardContent className="p-12 text-center">
-            <Bell className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
-            <h3 className="text-lg font-medium text-foreground mb-2">No announcements found</h3>
-            <p className="text-muted-foreground">
+          <CardContent className="p-6 sm:p-12 text-center">
+            <Bell className="h-10 w-10 sm:h-12 sm:w-12 text-muted-foreground mx-auto mb-3 sm:mb-4" />
+            <h3 className="text-base sm:text-lg font-medium text-foreground mb-2">No announcements found</h3>
+            <p className="text-sm text-muted-foreground">
               {filterType === "all" 
                 ? "No announcements have been posted yet."
                 : `No ${filterType} announcements found.`
               }
             </p>
             {userRole === "teacher" && (
-              <p className="text-sm text-muted-foreground mt-2">
+              <p className="text-xs sm:text-sm text-muted-foreground mt-2">
                 Create announcements from your Teacher Dashboard to get started.
               </p>
             )}
@@ -532,45 +529,45 @@ export const AnnouncementPage = ({ userRole }: AnnouncementPageProps) => {
 
       {/* Announcement Detail Dialog */}
       <Dialog open={!!selectedAnnouncement} onOpenChange={() => setSelectedAnnouncement(null)}>
-        <DialogContent className="max-w-4xl max-h-[80vh] overflow-y-auto">
+        <DialogContent className="max-w-4xl max-h-[80vh] overflow-y-auto mobile-modal">
           {selectedAnnouncement && (
             <>
-              <DialogHeader>
-                <DialogTitle>{selectedAnnouncement.title}</DialogTitle>
+              <DialogHeader className="mobile-modal-header">
+                <DialogTitle className="text-base sm:text-lg">{selectedAnnouncement.title}</DialogTitle>
               </DialogHeader>
-              <div className="space-y-6">
+              <div className="space-y-4 sm:space-y-6 mobile-modal-content">
                 <div>
-                  <h4 className="font-medium mb-2">Content</h4>
-                  <p className="text-muted-foreground whitespace-pre-wrap">{selectedAnnouncement.content}</p>
+                  <h4 className="font-medium mb-2 text-sm sm:text-base">Content</h4>
+                  <p className="text-sm sm:text-base text-muted-foreground whitespace-pre-wrap">{selectedAnnouncement.content}</p>
                 </div>
                 
-                <div className="grid grid-cols-2 gap-4">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
                   <div>
-                    <h4 className="font-medium mb-2">Type</h4>
+                    <h4 className="font-medium mb-2 text-sm sm:text-base">Type</h4>
                     <Badge variant={getTypeColor(selectedAnnouncement.type)} className="flex items-center space-x-1 w-fit">
                       {getTypeIcon(selectedAnnouncement.type)}
                       <span className="capitalize">{selectedAnnouncement.type}</span>
                     </Badge>
                   </div>
                   <div>
-                    <h4 className="font-medium mb-2">Priority</h4>
+                    <h4 className="font-medium mb-2 text-sm sm:text-base">Priority</h4>
                     <Badge variant={getPriorityColor(selectedAnnouncement.priority)} className="w-fit">
                       {selectedAnnouncement.priority === 'high' ? 'High Priority' : 'Normal'}
                     </Badge>
                   </div>
                   <div>
-                    <h4 className="font-medium mb-2">Posted</h4>
-                    <p className="text-muted-foreground">{formatTimeAgo(selectedAnnouncement.createdAt)}</p>
+                    <h4 className="font-medium mb-2 text-sm sm:text-base">Posted</h4>
+                    <p className="text-sm text-muted-foreground">{formatTimeAgo(selectedAnnouncement.createdAt)}</p>
                   </div>
                   <div>
-                    <h4 className="font-medium mb-2">Comments</h4>
-                    <p className="text-muted-foreground">{selectedAnnouncement.commentCount || 0}</p>
+                    <h4 className="font-medium mb-2 text-sm sm:text-base">Comments</h4>
+                    <p className="text-sm text-muted-foreground">{selectedAnnouncement.commentCount || 0}</p>
                   </div>
                 </div>
 
                 {selectedAnnouncement.attachments && selectedAnnouncement.attachments.length > 0 && (
                   <div>
-                    <h4 className="font-medium mb-2">Attachments</h4>
+                    <h4 className="font-medium mb-2 text-sm sm:text-base">Attachments</h4>
                     <FileViewer 
                       files={selectedAnnouncement.attachments}
                       title=""
@@ -582,7 +579,7 @@ export const AnnouncementPage = ({ userRole }: AnnouncementPageProps) => {
                 )}
 
                 <div>
-                  <h4 className="font-medium mb-2">Comments ({selectedAnnouncement.commentCount || 0})</h4>
+                  <h4 className="font-medium mb-2 text-sm sm:text-base">Comments ({selectedAnnouncement.commentCount || 0})</h4>
                   <CommentSection
                     assignmentId={selectedAnnouncement.id}
                     comments={selectedAnnouncement.comments || []}

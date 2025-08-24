@@ -147,13 +147,13 @@ export const AdminDashboard = ({ onNavigate }: AdminDashboardProps) => {
   };
 
   return (
-    <div className="p-6 space-y-6">
+    <div className="space-y-4 sm:space-y-6">
       {/* Welcome Section */}
-      <div className="bg-gradient-to-r from-purple-500/10 to-blue-500/10 rounded-2xl p-6">
-        <h1 className="text-2xl font-bold text-foreground mb-2">
+      <div className="bg-gradient-to-r from-purple-500/10 to-blue-500/10 rounded-xl sm:rounded-2xl p-4 sm:p-6">
+        <h1 className="text-xl sm:text-2xl font-bold text-foreground mb-2">
           Welcome, Admin! 👑
         </h1>
-        <p className="text-muted-foreground">
+        <p className="text-sm sm:text-base text-muted-foreground">
           Manage users, monitor system, and oversee the KindyReach platform.
         </p>
       </div>
@@ -162,9 +162,9 @@ export const AdminDashboard = ({ onNavigate }: AdminDashboardProps) => {
       <DashboardStats stats={stats} />
 
       {/* Quick Actions */}
-      <div className="flex flex-wrap gap-3">
+      <div className="flex flex-wrap gap-2 sm:gap-3">
         <Button 
-          className="flex items-center space-x-2"
+          className="flex items-center space-x-2 h-10 text-sm"
           onClick={() => setCurrentView('createClass')}
           variant={currentView === 'createClass' ? 'default' : 'outline'}
         >
@@ -173,7 +173,7 @@ export const AdminDashboard = ({ onNavigate }: AdminDashboardProps) => {
         </Button>
 
         <Button 
-          className="flex items-center space-x-2"
+          className="flex items-center space-x-2 h-10 text-sm"
           onClick={() => setCurrentView('createUser')}
           variant={currentView === 'createUser' ? 'default' : 'outline'}
         >
@@ -182,7 +182,7 @@ export const AdminDashboard = ({ onNavigate }: AdminDashboardProps) => {
         </Button>
 
         <Button 
-          className="flex items-center space-x-2"
+          className="flex items-center space-x-2 h-10 text-sm"
           onClick={() => setCurrentView('userManagement')}
           variant={currentView === 'userManagement' ? 'default' : 'outline'}
         >
@@ -193,40 +193,40 @@ export const AdminDashboard = ({ onNavigate }: AdminDashboardProps) => {
       </div>
 
       {/* Quick Navigation */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
         <Card className="cursor-pointer hover:shadow-lg transition-shadow" onClick={() => onNavigate("assignments")}>
-          <CardHeader>
-            <CardTitle className="flex items-center space-x-2">
-              <BookOpen className="h-5 w-5 text-primary" />
+          <CardHeader className="p-3 sm:p-4">
+            <CardTitle className="flex items-center space-x-2 text-sm sm:text-base">
+              <BookOpen className="h-4 w-4 sm:h-5 sm:w-5 text-primary" />
               <span>Assignment Management</span>
             </CardTitle>
           </CardHeader>
-          <CardContent>
-            <p className="text-muted-foreground">Monitor and manage all assignments across the platform</p>
+          <CardContent className="p-3 sm:p-4 pt-0">
+            <p className="text-xs sm:text-sm text-muted-foreground">Monitor and manage all assignments across the platform</p>
           </CardContent>
         </Card>
 
         <Card className="cursor-pointer hover:shadow-lg transition-shadow" onClick={() => onNavigate("announcements")}>
-          <CardHeader>
-            <CardTitle className="flex items-center space-x-2">
-              <Bell className="h-5 w-5 text-warning" />
+          <CardHeader className="p-3 sm:p-4">
+            <CardTitle className="flex items-center space-x-2 text-sm sm:text-base">
+              <Bell className="h-4 w-4 sm:h-5 sm:w-5 text-warning" />
               <span>System Announcements</span>
             </CardTitle>
           </CardHeader>
-          <CardContent>
-            <p className="text-muted-foreground">Send platform-wide announcements and updates</p>
+          <CardContent className="p-3 sm:p-4 pt-0">
+            <p className="text-xs sm:text-sm text-muted-foreground">Send platform-wide announcements and updates</p>
           </CardContent>
         </Card>
 
         <Card className="cursor-pointer hover:shadow-lg transition-shadow" onClick={() => onNavigate("forum")}>
-          <CardHeader>
-            <CardTitle className="flex items-center space-x-2">
-              <MessageSquare className="h-5 w-5 text-blue-500" />
+          <CardHeader className="p-3 sm:p-4">
+            <CardTitle className="flex items-center space-x-2 text-sm sm:text-base">
+              <MessageSquare className="h-4 w-4 sm:h-5 sm:w-5 text-blue-500" />
               <span>Community Forum</span>
             </CardTitle>
           </CardHeader>
-          <CardContent>
-            <p className="text-muted-foreground">Join discussions and share insights with the community</p>
+          <CardContent className="p-3 sm:p-4 pt-0">
+            <p className="text-xs sm:text-sm text-muted-foreground">Join discussions and share insights with the community</p>
           </CardContent>
         </Card>
 
@@ -235,8 +235,8 @@ export const AdminDashboard = ({ onNavigate }: AdminDashboardProps) => {
 
       {/* Content Area */}
       <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center justify-between">
+        <CardHeader className="p-3 sm:p-4">
+          <CardTitle className="flex items-center justify-between text-base sm:text-lg">
             <span>
               {currentView === 'userManagement' ? 'User Management' : 
                currentView === 'createClass' ? 'Create New Class' :
@@ -254,7 +254,7 @@ export const AdminDashboard = ({ onNavigate }: AdminDashboardProps) => {
             )}
           </CardTitle>
         </CardHeader>
-        <CardContent>
+        <CardContent className="p-3 sm:p-4">
           {currentView === 'userManagement' ? (
             <UserManagement classes={classes} />
           ) : currentView === 'createClass' ? (
@@ -274,10 +274,10 @@ export const AdminDashboard = ({ onNavigate }: AdminDashboardProps) => {
               }} 
             />
           ) : (
-            <div className="text-center py-8 text-muted-foreground">
-              <Users className="h-12 w-12 mx-auto mb-3 opacity-50" />
-              <p className="text-lg">Choose an action above to get started</p>
-              <p className="text-sm">Create classes, manage users, or view system reports</p>
+            <div className="text-center py-6 sm:py-8 text-muted-foreground">
+              <Users className="h-10 w-10 sm:h-12 sm:w-12 mx-auto mb-3 opacity-50" />
+              <p className="text-base sm:text-lg">Choose an action above to get started</p>
+              <p className="text-xs sm:text-sm">Create classes, manage users, or view system reports</p>
             </div>
           )}
         </CardContent>
