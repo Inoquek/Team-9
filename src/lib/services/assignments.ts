@@ -490,6 +490,77 @@ import {
         throw error;
       }
     }
+
+    // Create in-class grade submission (no files needed)
+    static async createInClassGrade(data: {
+      assignmentId: string;
+      studentId: string;
+      teacherId: string;
+      points: number;
+      notes?: string;
+      completionTimeMinutes?: number;
+    }): Promise<string> {
+      try {
+        const docRef = await addDoc(collection(db, 'submissions'), {
+          assignmentId: data.assignmentId,
+          studentId: data.studentId,
+          parentId: data.teacherId, // Store teacher ID in parentId field
+          files: [], // No files for in-class grades
+          submittedAt: new Date(),
+          status: 'approved', // Automatically approved since teacher graded it
+          points: data.points,
+          completionTimeMinutes: data.completionTimeMinutes || 0,
+          studyTimeToday: 0, // No study time tracking for in-class grades
+          feedback: {
+            id: 'in-class-grade',
+            teacherId: data.teacherId,
+            message: data.notes || 'Grade given for in-class performance',
+            emoji: '⭐',
+            points: data.points,
+            createdAt: new Date()
+          },
+          isInClassGrade: true, // Flag to identify in-class grades
+          submittedBy: 'teacher' // Indicates this was created by teacher
+        });
+        return docRef.id;
+      } catch (error) {
+        console.error('Create in-class grade error:', error);
+        throw error;
+      }
+    }
+
+    // Bulk create grades for multiple students
+    static async createBulkInClassGrades(data: {
+      assignmentId: string;
+      grades: Array<{
+        studentId: string;
+        points: number;
+        notes?: string;
+        completionTimeMinutes?: number;
+      }>;
+      teacherId: string;
+    }): Promise<string[]> {
+      try {
+        const submissionIds: string[] = [];
+        
+        for (const grade of data.grades) {
+          const submissionId = await this.createInClassGrade({
+            assignmentId: data.assignmentId,
+            studentId: grade.studentId,
+            teacherId: data.teacherId,
+            points: grade.points,
+            notes: grade.notes,
+            completionTimeMinutes: grade.completionTimeMinutes
+          });
+          submissionIds.push(submissionId);
+        }
+        
+        return submissionIds;
+      } catch (error) {
+        console.error('Create bulk in-class grades error:', error);
+        throw error;
+      }
+    }
   }
 
 

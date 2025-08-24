@@ -202,15 +202,15 @@ export const ParentAssignmentPage: React.FC<ParentAssignmentPageProps> = ({ onNa
   const isAssignmentCompleted = (assignmentId: string) => {
     const submission = submissions.find(sub => sub.assignmentId === assignmentId);
     if (!submission) return false;
-    // Assignment is completed if it's approved or explicitly marked as completed
+    // Assignment is completed if it's approved or completed (these represent graded work)
     return submission.status === 'approved' || submission.status === 'completed';
   };
 
-  // Helper function to determine if assignment is incomplete (has work to do)
-  const isAssignmentIncomplete = (assignmentId: string) => {
+  // Helper function to determine if assignment is not started (has work to do)
+  const isAssignmentNotStarted = (assignmentId: string) => {
     const submission = submissions.find(sub => sub.assignmentId === assignmentId);
-    if (!submission) return true; // No submission = incomplete
-    // Assignment is incomplete if not yet approved/completed
+    if (!submission) return true; // No submission = not started
+    // Assignment is not started if not yet approved/completed
     return submission.status !== 'approved' && submission.status !== 'completed';
   };
 
@@ -231,9 +231,9 @@ export const ParentAssignmentPage: React.FC<ParentAssignmentPageProps> = ({ onNa
     switch (status) {
       case 'approved': 
       case 'completed': return 'success';
-      case 'submitted':
-      case 'pending': return 'warning';
-      case 'needsRevision': return 'destructive';
+      case 'submitted': 
+      case 'pending': 
+      case 'needsRevision': return 'warning';
       case 'not_started': return 'secondary';
       default: return 'secondary';
     }
@@ -243,9 +243,9 @@ export const ParentAssignmentPage: React.FC<ParentAssignmentPageProps> = ({ onNa
     switch (status) {
       case 'approved': 
       case 'completed': return <CheckCircle className="h-4 w-4" />;
-      case 'submitted': return <Upload className="h-4 w-4" />;
-      case 'pending': return <Clock className="h-4 w-4" />;
-      case 'needsRevision': return <Target className="h-4 w-4" />;
+      case 'submitted': 
+      case 'pending': 
+      case 'needsRevision': return <Upload className="h-4 w-4" />;
       case 'not_started': return <BookOpen className="h-4 w-4" />;
       default: return <BookOpen className="h-4 w-4" />;
     }
@@ -264,11 +264,17 @@ export const ParentAssignmentPage: React.FC<ParentAssignmentPageProps> = ({ onNa
 
   const filteredAssignments = assignments.filter(assignment => {
     if (filterStatus === "all") return true;
-    if (filterStatus === "incomplete") {
-      return isAssignmentIncomplete(assignment.id);
+    
+    const submissionStatus = getSubmissionStatus(assignment.id);
+    
+    if (filterStatus === "not_started") {
+      return submissionStatus === 'not_started';
     }
-    if (filterStatus === "completed") {
-      return isAssignmentCompleted(assignment.id);
+    if (filterStatus === "submitted") {
+      return submissionStatus === 'submitted' || submissionStatus === 'pending' || submissionStatus === 'needsRevision';
+    }
+    if (filterStatus === "graded") {
+      return submissionStatus === 'approved' || submissionStatus === 'completed';
     }
     if (filterStatus === "active") {
       return assignment.status === "active";
@@ -347,9 +353,10 @@ export const ParentAssignmentPage: React.FC<ParentAssignmentPageProps> = ({ onNa
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="all">All Assignments</SelectItem>
+              <SelectItem value="not_started">Not Started</SelectItem>
+              <SelectItem value="submitted">Submitted</SelectItem>
+              <SelectItem value="graded">Graded</SelectItem>
               <SelectItem value="active">Active</SelectItem>
-              <SelectItem value="incomplete">Incomplete</SelectItem>
-              <SelectItem value="completed">Completed</SelectItem>
               <SelectItem value="archived">Archived</SelectItem>
             </SelectContent>
           </Select>
@@ -359,15 +366,24 @@ export const ParentAssignmentPage: React.FC<ParentAssignmentPageProps> = ({ onNa
         <div className="text-sm text-muted-foreground">
           {(() => {
             const totalAssignments = assignments.length;
-            const completedCount = assignments.filter(a => isAssignmentCompleted(a.id)).length;
-            const incompleteCount = assignments.filter(a => isAssignmentIncomplete(a.id)).length;
+            const notStartedCount = assignments.filter(a => getSubmissionStatus(a.id) === 'not_started').length;
+            const submittedCount = assignments.filter(a => {
+              const status = getSubmissionStatus(a.id);
+              return status === 'submitted' || status === 'pending' || status === 'needsRevision';
+            }).length;
+            const gradedCount = assignments.filter(a => {
+              const status = getSubmissionStatus(a.id);
+              return status === 'approved' || status === 'completed';
+            }).length;
             
             if (filterStatus === "all") {
               return `Showing ${filteredAssignments.length} of ${totalAssignments} assignments`;
-            } else if (filterStatus === "completed") {
-              return `${completedCount} completed assignment${completedCount !== 1 ? 's' : ''}`;
-            } else if (filterStatus === "incomplete") {
-              return `${incompleteCount} incomplete assignment${incompleteCount !== 1 ? 's' : ''}`;
+            } else if (filterStatus === "not_started") {
+              return `${notStartedCount} not started assignment${notStartedCount !== 1 ? 's' : ''}`;
+            } else if (filterStatus === "submitted") {
+              return `${submittedCount} submitted assignment${submittedCount !== 1 ? 's' : ''}`;
+            } else if (filterStatus === "graded") {
+              return `${gradedCount} graded assignment${gradedCount !== 1 ? 's' : ''}`;
             } else {
               return `${filteredAssignments.length} ${filterStatus} assignment${filteredAssignments.length !== 1 ? 's' : ''}`;
             }
@@ -406,13 +422,13 @@ export const ParentAssignmentPage: React.FC<ParentAssignmentPageProps> = ({ onNa
                           {getStatusIcon(status)}
                           {(() => {
                             switch (status) {
-                              case 'not_started': return 'Not Started';
-                              case 'submitted': return 'Submitted';
-                              case 'pending': return 'Under Review';
-                              case 'approved': return 'Completed';
-                              case 'completed': return 'Completed';
-                              case 'needsRevision': return 'Needs Revision';
-                              default: return status;
+                              case 'not_started': return 'Incomplete';
+                              case 'submitted': 
+                              case 'pending': 
+                              case 'needsRevision': return 'Submitted';
+                              case 'approved': 
+                              case 'completed': return 'Graded';
+                              default: return 'Incomplete';
                             }
                           })()}
                         </Badge>
@@ -605,23 +621,33 @@ export const ParentAssignmentPage: React.FC<ParentAssignmentPageProps> = ({ onNa
       {filteredAssignments.length === 0 && (
         <Card className="text-center py-12">
           {(() => {
-            if (filterStatus === "completed") {
+            if (filterStatus === "graded") {
               return (
                 <>
                   <CheckCircle className="h-12 w-12 mx-auto mb-4 text-green-600" />
-                  <h3 className="text-lg font-semibold mb-2">No Completed Assignments Yet</h3>
+                  <h3 className="text-lg font-semibold mb-2">No Graded Assignments Yet</h3>
                   <p className="text-muted-foreground">
-                    {studentInfo.name} hasn't completed any assignments yet. Keep working on them!
+                    {studentInfo.name} hasn't received grades on any assignments yet. Keep working on them!
                   </p>
                 </>
               );
-            } else if (filterStatus === "incomplete") {
+            } else if (filterStatus === "submitted") {
               return (
                 <>
-                  <Award className="h-12 w-12 mx-auto mb-4 text-green-600" />
-                  <h3 className="text-lg font-semibold mb-2">All Caught Up!</h3>
+                  <Upload className="h-12 w-12 mx-auto mb-4 text-orange-600" />
+                  <h3 className="text-lg font-semibold mb-2">No Submitted Assignments</h3>
                   <p className="text-muted-foreground">
-                    {studentInfo.name} has completed all available assignments. Great job!
+                    {studentInfo.name} hasn't submitted any assignments yet. Time to get started!
+                  </p>
+                </>
+              );
+            } else if (filterStatus === "not_started") {
+              return (
+                <>
+                  <BookOpen className="h-12 w-12 mx-auto mb-4 text-blue-600" />
+                  <h3 className="text-lg font-semibold mb-2">All Assignments Started!</h3>
+                  <p className="text-muted-foreground">
+                    {studentInfo.name} has started working on all available assignments. Great job!
                   </p>
                 </>
               );

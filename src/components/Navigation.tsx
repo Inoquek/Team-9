@@ -1,5 +1,4 @@
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
 import { BookOpen, Home, Bell, LogOut, User, Heart, Star, TrendingUp, Sprout, MessageSquare } from "lucide-react"; // 添加MessageSquare
 
 import { useAuth } from "@/contexts/AuthContext";
@@ -23,15 +22,10 @@ interface AppSidebarProps {
   user: UserType;
   currentPage: "dashboard" | "assignments" | "announcements" | "metrics" | "parentGarden" | "forum"; // 添加forum
   onNavigate: (page: "dashboard" | "assignments" | "announcements" | "metrics" | "parentGarden" | "forum") => void; // 添加forum
-  badgeCounts?: {
-    assignments?: number;
-    announcements?: number;
-  };
-  onClearBadge?: (type: 'assignments' | 'announcements') => void;
 }
 
 
-export const AppSidebar = ({ user, currentPage, onNavigate, badgeCounts, onClearBadge }: AppSidebarProps) => {
+export const AppSidebar = ({ user, currentPage, onNavigate }: AppSidebarProps) => {
   const { state } = useSidebar();
   const { signOut } = useAuth();
   const isCollapsed = state === "collapsed";
@@ -47,13 +41,13 @@ export const AppSidebar = ({ user, currentPage, onNavigate, badgeCounts, onClear
       title: "Assignments", 
       page: "assignments" as const,
       icon: BookOpen,
-      badge: user.role === "parent" && badgeCounts && badgeCounts.assignments > 0 ? badgeCounts.assignments : null,
+      badge: null,
     },
     {
       title: "Announcements",
       page: "announcements" as const, 
       icon: Bell,
-      badge: user.role === "parent" && badgeCounts && badgeCounts.announcements > 0 ? badgeCounts.announcements : null,
+      badge: null,
     },
     // + NEW: Metrics (visible to parents & teachers)
     {
@@ -118,14 +112,6 @@ export const AppSidebar = ({ user, currentPage, onNavigate, badgeCounts, onClear
                 <SidebarMenuItem key={item.page}>
                   <SidebarMenuButton
                     onClick={() => {
-                      // Clear badge when navigating to a page with notifications
-                      if (onClearBadge && item.badge) {
-                        if (item.page === 'assignments') {
-                          onClearBadge('assignments');
-                        } else if (item.page === 'announcements') {
-                          onClearBadge('announcements');
-                        }
-                      }
                       onNavigate(item.page);
                     }}
                     isActive={currentPage === item.page}
@@ -135,17 +121,7 @@ export const AppSidebar = ({ user, currentPage, onNavigate, badgeCounts, onClear
                     {!isCollapsed && (
                       <>
                         <span>{item.title}</span>
-                        {item.badge && (
-                          <Badge variant="destructive" className="ml-auto h-5 w-5 p-0 text-xs flex items-center justify-center">
-                            {item.badge}
-                          </Badge>
-                        )}
                       </>
-                    )}
-                    {isCollapsed && item.badge && (
-                      <Badge variant="destructive" className="absolute -top-1 -right-1 h-4 w-4 p-0 text-xs flex items-center justify-center">
-                        {item.badge}
-                      </Badge>
                     )}
                   </SidebarMenuButton>
                 </SidebarMenuItem>

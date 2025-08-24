@@ -19,51 +19,19 @@ type CurrentPage = "dashboard" | "assignments" | "announcements" | "metrics" | "
 const Index = () => {
   const { user, loading } = useAuth();
   const [currentPage, setCurrentPage] = useState<CurrentPage>("dashboard");
-  const [badgeCounts, setBadgeCounts] = useState({ assignments: 0, announcements: 0 });
-
-  // Load badge counts from localStorage on component mount
-  useEffect(() => {
-    const savedBadgeCounts = localStorage.getItem('badgeCounts');
-    if (savedBadgeCounts) {
-      try {
-        const parsed = JSON.parse(savedBadgeCounts);
-        setBadgeCounts(parsed);
-      } catch (error) {
-        console.error('Error parsing saved badge counts:', error);
-      }
-    }
-  }, []);
 
 
 
-  const handleClearBadge = useCallback((type: 'assignments' | 'announcements') => {
-    setBadgeCounts(prev => {
-      const newCounts = {
-        ...prev,
-        [type]: 0
-      };
-      // Save to localStorage
-      localStorage.setItem('badgeCounts', JSON.stringify(newCounts));
-      return newCounts;
-    });
-  }, []);
+
+
+
+
 
   const handleNavigate = useCallback((page: CurrentPage) => {
-    // Clear badges when navigating to pages with notifications
-    if (page === 'assignments' && badgeCounts.assignments > 0) {
-      handleClearBadge('assignments');
-    } else if (page === 'announcements' && badgeCounts.announcements > 0) {
-      handleClearBadge('announcements');
-    }
-    
     setCurrentPage(page);
-  }, [badgeCounts, handleClearBadge]);
-
-  const handleBadgeCountsUpdate = useCallback((counts: { assignments: number; announcements: number }) => {
-    setBadgeCounts(counts);
-    // Save to localStorage
-    localStorage.setItem('badgeCounts', JSON.stringify(counts));
   }, []);
+
+
 
   // Show loading spinner while checking auth
   if (loading) {
@@ -88,8 +56,6 @@ const Index = () => {
             user={user}
             currentPage={currentPage}
             onNavigate={handleNavigate}
-            badgeCounts={badgeCounts}
-            onClearBadge={handleClearBadge}
           />
           
           <div className="flex-1 flex flex-col">
@@ -102,7 +68,6 @@ const Index = () => {
                     {user.role === "parent" ? (
                       <ParentDashboard 
                         onNavigate={handleNavigate} 
-                        onBadgeCountsUpdate={handleBadgeCountsUpdate}
                       />
                     ) : user.role === "teacher" ? (
                       <TeacherDashboard onNavigate={handleNavigate} />

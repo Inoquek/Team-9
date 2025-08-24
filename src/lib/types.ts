@@ -164,6 +164,8 @@ export interface Submission {
   points: number;
   completionTimeMinutes: number; // Time taken to complete in minutes
   studyTimeToday: number; // Total study time for the day when submitted
+  isInClassGrade?: boolean; // New: indicates if this was graded in-class
+  submittedBy?: 'parent' | 'teacher'; // New: who created the submission
 }
 
 export interface SubmissionFile {

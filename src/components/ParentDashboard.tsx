@@ -237,10 +237,9 @@ function computeStreak(rows: DayRow[], metric: keyof DayRow, goal: number): Set<
 
 interface ParentDashboardProps {
   onNavigate: (page: "assignments" | "announcements" | "parentGarden") => void;
-  onBadgeCountsUpdate: (counts: { assignments: number; announcements: number }) => void;
 }
 
-export const ParentDashboard = ({ onNavigate, onBadgeCountsUpdate }: ParentDashboardProps) => {
+export const ParentDashboard = ({ onNavigate }: ParentDashboardProps) => {
   const { user } = useAuth();
   const { toast } = useToast();
   
@@ -374,12 +373,8 @@ export const ParentDashboard = ({ onNavigate, onBadgeCountsUpdate }: ParentDashb
         }
       }).length;
 
-      onBadgeCountsUpdate({
-        assignments: activeAssignmentsCount,
-        announcements: newAnnouncementsCount
-      });
     }
-  }, [assignments, announcements, isLoading, onBadgeCountsUpdate]);
+  }, [assignments, announcements, isLoading]);
 
   const activeAssignments = useMemo(() => assignments.filter((a) => a.status === "active"), [assignments]);
 

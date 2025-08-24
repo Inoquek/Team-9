@@ -425,14 +425,14 @@ export const AssignmentPage = ({ userRole }: AssignmentPageProps) => {
     return submissions.length;
   };
 
-  // Helper function to get completed assignments count for parents
-  const getCompletedAssignmentsCount = () => {
+  // Helper function to get graded assignments count for parents
+  const getGradedAssignmentsCount = () => {
     if (userRole !== 'parent') return 0;
     return submissions.filter(sub => sub.status === 'approved' || sub.status === 'completed').length;
   };
 
-  // Helper function to get incomplete assignments count for parents
-  const getIncompleteAssignmentsCount = () => {
+  // Helper function to get not started assignments count for parents
+  const getNotStartedAssignmentsCount = () => {
     if (userRole !== 'parent') return 0;
     return assignments.filter(assignment => {
       const submission = findSubmissionByAssignment(assignment.id);
@@ -451,18 +451,18 @@ export const AssignmentPage = ({ userRole }: AssignmentPageProps) => {
       const studyTimeEntry = await StudyTimeService.getOrCreateStudyTimeEntry(studentInfo.id, today);
       const dbStudyTime = studyTimeEntry.totalMinutes;
       
-      // Get completed assignments from database (submissions made today)
+      // Get graded assignments from database (submissions made today)
       const todaySubmissions = submissions.filter(sub => {
         const submissionDate = new Date(sub.submittedAt).toISOString().split('T')[0];
         return submissionDate === today && (sub.status === 'approved' || sub.status === 'completed');
       });
-      const dbCompletedCount = todaySubmissions.length;
+      const dbGradedCount = todaySubmissions.length;
       
       // Update state with database values
       setTodayMinutes(dbStudyTime);
-      setTodayCompletedAssignments(dbCompletedCount);
+      setTodayCompletedAssignments(dbGradedCount);
       
-      console.log(`Updated daily stats from database: ${dbStudyTime}m study time, ${dbCompletedCount} completed assignments`);
+      console.log(`Updated daily stats from database: ${dbStudyTime}m study time, ${dbGradedCount} graded assignments`);
       console.log('Study time entry details:', studyTimeEntry);
       console.log('Today submissions:', todaySubmissions);
       console.log('Document ID being queried:', `${studentInfo.id}_${today}`);
@@ -519,13 +519,13 @@ export const AssignmentPage = ({ userRole }: AssignmentPageProps) => {
 
   const getSubmissionStatusText = (status: string) => {
     switch (status) {
-      case 'approved': return 'Approved';
-      case 'completed': return 'Completed';
-      case 'submitted': return 'Submitted';
-      case 'pending': return 'Pending';
-      case 'needsRevision': return 'Needs Revision';
+      case 'approved': 
+      case 'completed': return 'Graded';
+      case 'submitted': 
+      case 'pending': 
+      case 'needsRevision': return 'Submitted';
       case 'not_started': return 'Not Started';
-      default: return 'Unknown';
+      default: return 'Not Started';
     }
   };
 
@@ -536,7 +536,7 @@ export const AssignmentPage = ({ userRole }: AssignmentPageProps) => {
     return (
       <div className="p-3 bg-blue-50 rounded border border-blue-200">
         <div className="flex items-center mb-1">
-          <MessageCircle className="w-4 w-4 text-blue-600 mr-1" />
+          <MessageCircle className="h-4 w-4 text-blue-600 mr-1" />
           <span className="text-sm font-medium text-blue-800">Teacher Feedback</span>
         </div>
         <div className="space-y-2">
@@ -940,7 +940,7 @@ export const AssignmentPage = ({ userRole }: AssignmentPageProps) => {
         files: uploadedSubmissionFiles,
         completionTimeMinutes: Math.ceil(timeSpent / 60), // Convert seconds to minutes
         studyTimeToday: 0, // Will be updated by StudyTimeService
-        status: 'completed' as const // Mark as completed for the parent
+        status: 'submitted' as const // Mark as submitted for the parent
       };
 
       // Save submission to Firestore
@@ -984,7 +984,7 @@ export const AssignmentPage = ({ userRole }: AssignmentPageProps) => {
         parentId: user.uid,
         files: uploadedSubmissionFiles,
         submittedAt: new Date(),
-        status: 'completed' as const, // Mark as completed for the parent
+        status: 'submitted' as const, // Mark as submitted for the parent
         points: 0,
         completionTimeMinutes: Math.ceil(timeSpent / 60),
         studyTimeToday: 0
@@ -1250,7 +1250,7 @@ export const AssignmentPage = ({ userRole }: AssignmentPageProps) => {
     if (userRole === "parent") {
       const submission = findSubmissionByAssignment(assignment.id);
       
-      if (filterStatus === "incomplete") {
+      if (filterStatus === "not_started") {
         // Show assignments that are not completed from submission perspective
         return !submission || (submission.status !== 'approved' && submission.status !== 'completed');
       }
@@ -1270,7 +1270,7 @@ export const AssignmentPage = ({ userRole }: AssignmentPageProps) => {
     }
     
     // For teachers/admins, filter based on assignment status
-    if (filterStatus === "incomplete") {
+    if (filterStatus === "not_started") {
       // Show assignments that are not completed (active, pending, etc.)
       return assignment.status !== "completed" && assignment.status !== "archived";
     }
@@ -1618,7 +1618,7 @@ export const AssignmentPage = ({ userRole }: AssignmentPageProps) => {
             <SelectContent>
               <SelectItem value="all">All Assignments</SelectItem>
               <SelectItem value="active">Active</SelectItem>
-              <SelectItem value="incomplete">Incomplete</SelectItem>
+              <SelectItem value="not_started">Not Started</SelectItem>
               {userRole === "parent" && (
                 <SelectItem value="completed">Completed</SelectItem>
               )}
@@ -1653,7 +1653,7 @@ export const AssignmentPage = ({ userRole }: AssignmentPageProps) => {
               <div>
                 <p className="text-2xl font-bold">
                   {userRole === "parent" 
-                    ? getCompletedAssignmentsCount() // Show completed assignments count for parents
+                    ? getGradedAssignmentsCount() // Show graded assignments count for parents
                     : assignments.filter(a => a.status === "active").length // Show active assignments for teachers/admins
                   }
                 </p>
@@ -1666,16 +1666,16 @@ export const AssignmentPage = ({ userRole }: AssignmentPageProps) => {
         </Card>
 
         {userRole === "parent" ? (
-          // For parents, show incomplete assignments count
+                        // For parents, show not started assignments count
           <Card className="border-l-4 border-l-warning">
             <CardContent className="p-4">
               <div className="flex items-center space-x-3">
                 <Target className="h-8 w-8 text-warning" />
                 <div>
                   <p className="text-2xl font-bold">
-                    {getIncompleteAssignmentsCount()}
+                    {getNotStartedAssignmentsCount()}
                   </p>
-                  <p className="text-sm text-muted-foreground">Incomplete</p>
+                                      <p className="text-sm text-muted-foreground">Not Started</p>
                 </div>
               </div>
             </CardContent>
