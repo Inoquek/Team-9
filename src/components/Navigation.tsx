@@ -1,6 +1,7 @@
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { BookOpen, Home, Bell, LogOut, User, Heart, Star, TrendingUp, Sprout, MessageSquare } from "lucide-react"; // 添加MessageSquare
+import { LanguageSelector } from "@/components/LanguageSelector";
 
 import { useAuth } from "@/contexts/AuthContext";
 import {
@@ -18,6 +19,7 @@ import {
   SidebarFooter,
 } from "@/components/ui/sidebar";
 import { User as UserType } from "@/lib/types";
+import { useLanguage } from "@/contexts/LanguageContext";
 
 interface AppSidebarProps {
   user: UserType;
@@ -213,6 +215,8 @@ interface TopBarProps {
 }
 
 export const TopBar = ({ user }: TopBarProps) => {
+  const { isTranslating } = useLanguage();
+  
   return (
     <header className="h-12 flex items-center border-b border-border bg-card px-4">
       <SidebarTrigger className="mr-4" />
@@ -223,6 +227,15 @@ export const TopBar = ({ user }: TopBarProps) => {
            "Admin Dashboard"}
         </h2>
       </div>
+      
+      {/* Translation Indicator */}
+      {isTranslating && (
+        <div className="mr-3 text-xs text-blue-600 bg-blue-50 px-2 py-1 rounded">
+          Translating...
+        </div>
+      )}
+      
+      <LanguageSelector />
     </header>
   );
 };

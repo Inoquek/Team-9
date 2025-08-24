@@ -1,19 +1,20 @@
 import { 
-    collection, 
-    doc, 
-    addDoc, 
-    updateDoc, 
-    deleteDoc, 
-    getDocs, 
-    getDoc,
-    query, 
-    where, 
-    orderBy,
-    limit,
-    onSnapshot
-  } from 'firebase/firestore';
-  import { db } from '../firebase';
-  import { Assignment, Submission, Feedback, Comment, AssignmentWithComments } from '../types';
+  collection, 
+  doc, 
+  addDoc, 
+  updateDoc, 
+  deleteDoc, 
+  getDocs, 
+  getDoc,
+  query, 
+  where, 
+  orderBy,
+  limit,
+  onSnapshot
+} from 'firebase/firestore';
+import { ref, deleteObject } from 'firebase/storage';
+import { db, storage } from '../firebase';
+import { Assignment, Submission, Feedback, Comment, AssignmentWithComments } from '../types';
   
   // Average monthly scores for a student (across subjects)
   export async function getMonthlyAverageScores(studentId: string) {
@@ -172,15 +173,101 @@ import {
       }
     }
   
-    // Delete assignment
-    static async deleteAssignment(id: string): Promise<void> {
-      try {
-        await deleteDoc(doc(db, 'assignments', id));
-      } catch (error) {
-        console.error('Delete assignment error:', error);
-        throw error;
+    // Delete assignment with cascading deletes
+  static async deleteAssignment(id: string): Promise<void> {
+    try {
+      console.log(`Starting cascading delete for assignment: ${id}`);
+      
+      // 1. Delete all submissions for this assignment
+      const submissionsQuery = query(
+        collection(db, 'submissions'), 
+        where('assignmentId', '==', id)
+      );
+      const submissionsSnapshot = await getDocs(submissionsQuery);
+      
+      if (!submissionsSnapshot.empty) {
+        console.log(`Found ${submissionsSnapshot.docs.length} submissions to delete`);
+        
+        // Delete all submission files from storage first
+        const deleteFilePromises = submissionsSnapshot.docs.map(async (subDoc) => {
+          const submissionData = subDoc.data() as any;
+          if (submissionData.files && Array.isArray(submissionData.files)) {
+            return submissionData.files.map(async (file: any) => {
+              if (file.url) {
+                try {
+                  // Extract file path from URL and delete from storage
+                  const filePath = decodeURIComponent(file.url.split('/o/')[1]?.split('?')[0] || '');
+                  if (filePath) {
+                    const fileRef = ref(storage, filePath);
+                    await deleteObject(fileRef);
+                    console.log(`Deleted file: ${filePath}`);
+                  }
+                } catch (fileError) {
+                  console.warn(`Failed to delete file: ${file.url}`, fileError);
+                }
+              }
+            });
+          }
+        });
+        
+        // Wait for file deletions to complete
+        await Promise.all(deleteFilePromises.flat());
+        
+        // Delete all submissions
+        const deleteSubmissionPromises = submissionsSnapshot.docs.map(doc => 
+          deleteDoc(doc.ref)
+        );
+        await Promise.all(deleteSubmissionPromises);
+        console.log(`Deleted ${submissionsSnapshot.docs.length} submissions`);
       }
+      
+      // 2. Delete all comments for this assignment
+      const commentsQuery = query(
+        collection(db, 'assignments', id, 'comments')
+      );
+      const commentsSnapshot = await getDocs(commentsQuery);
+      
+      if (!commentsSnapshot.empty) {
+        console.log(`Found ${commentsSnapshot.docs.length} comments to delete`);
+        const deleteCommentPromises = commentsSnapshot.docs.map(doc => 
+          deleteDoc(doc.ref)
+        );
+        await Promise.all(deleteCommentPromises);
+        console.log(`Deleted ${commentsSnapshot.docs.length} comments`);
+      }
+      
+      // 3. Delete assignment attachments from storage
+      const assignmentDoc = await getDoc(doc(db, 'assignments', id));
+      if (assignmentDoc.exists()) {
+        const assignmentData = assignmentDoc.data() as Assignment;
+        if (assignmentData.attachments && Array.isArray(assignmentData.attachments)) {
+          const deleteAttachmentPromises = assignmentData.attachments.map(async (attachment) => {
+            if (attachment.url) {
+              try {
+                const filePath = decodeURIComponent(attachment.url.split('/o/')[1]?.split('?')[0] || '');
+                if (filePath) {
+                  const fileRef = ref(storage, filePath);
+                  await deleteObject(fileRef);
+                  console.log(`Deleted attachment: ${filePath}`);
+                }
+              } catch (fileError) {
+                console.warn(`Failed to delete attachment: ${attachment.url}`, fileError);
+              }
+            }
+          });
+          await Promise.all(deleteAttachmentPromises);
+        }
+      }
+      
+      // 4. Finally delete the assignment itself
+      await deleteDoc(doc(db, 'assignments', id));
+      console.log(`Assignment ${id} deleted successfully`);
+      
+    } catch (error) {
+      console.error('Delete assignment error:', error);
+      throw error;
     }
+  }
   
         // Listen to real-time updates for assignments (simplified)
   static subscribeToAssignments(classId: string, callback: (assignments: Assignment[]) => void) {
