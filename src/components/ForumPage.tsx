@@ -393,8 +393,8 @@ export const ForumPage = ({ userRole, currentUserName }: ForumPageProps) => {
 
               <div className="flex-1 min-w-0">
                 <div className="flex flex-wrap items-center gap-2 text-xs sm:text-sm">
-                  <span className="font-medium">{c.authorName}</span>
-                  <Badge variant="outline" className="capitalize">{c.authorRole}</Badge>
+                  {(c.authorRole == "teacher" || c.authorRole == "admin") && <span className="font-medium">{c.authorName}</span>}
+                  {c.authorName != "AI Assistant 🤖" && <Badge variant="outline" className="capitalize">{c.authorRole}</Badge>}
                   {hidden && <Badge variant="destructive">Hidden</Badge>}
                   <span className="text-xs text-muted-foreground">{fmt(c.createdAt)}</span>
                 </div>
@@ -591,9 +591,9 @@ export const ForumPage = ({ userRole, currentUserName }: ForumPageProps) => {
                               <CardTitle className="text-base sm:text-lg">{p.title}</CardTitle>
                               <Badge className={tagBadge(p.tag)}>{p.tag}</Badge>
                             </div>
-                            <div className="text-xs sm:text-sm text-muted-foreground">
+                            {p.authorRole == "teacher" && <div className="text-xs sm:text-sm text-muted-foreground">
                               Posted by <span className="font-medium">{p.authorName}</span> • {fmt(p.createdAt)}
-                            </div>
+                            </div>}
                             <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-4 text-xs sm:text-sm text-muted-foreground">
                               <span className="flex items-center gap-1">
                                 <MessageCircle className="h-4 w-4" /> {comments[p.id]?.length || 0} comments
