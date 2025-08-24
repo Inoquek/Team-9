@@ -9,7 +9,7 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Progress } from "@/components/ui/progress";
-import { BookOpen, Calendar, Clock, CheckCircle, Plus, Edit, Trash2, Eye, Users, MessageCircle, File, Download, Play, Pause, Square, Upload, X, Star, Trophy, Target, FileText, ExternalLink, TrendingUp } from "lucide-react";
+import { BookOpen, Calendar, Clock, CheckCircle, Plus, Edit, Trash2, Eye, Users, MessageCircle, File, Download, Play, Pause, Square, Upload, X, Star, Trophy, Target, FileText, ExternalLink, TrendingUp, ChevronUp, ChevronDown } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
 import { useTeacherClass } from "@/contexts/TeacherClassContext";
@@ -217,6 +217,7 @@ export const AssignmentPage = ({ userRole }: AssignmentPageProps) => {
   
   // New state for delete confirmation
   const [deleteConfirmOpen, setDeleteConfirmOpen] = useState<string | null>(null);
+  const [expandedAssignments, setExpandedAssignments] = useState<Set<string>>(new Set());
   
   const fileInputRef = useRef<HTMLInputElement>(null);
   const intervalRef = useRef<NodeJS.Timeout | null>(null);
@@ -400,10 +401,78 @@ export const AssignmentPage = ({ userRole }: AssignmentPageProps) => {
     }
   }, [submissions, userRole, selectedClass, assignments]);
 
+  // Update daily stats when submissions are loaded (for parents)
+  useEffect(() => {
+    if (userRole === 'parent' && submissions.length > 0) {
+      updateDailyStatsFromDatabase();
+    }
+  }, [submissions, userRole]);
+
+  // Periodic refresh of daily stats for parents (every 5 minutes)
+  useEffect(() => {
+    if (userRole !== 'parent') return;
+    
+    const interval = setInterval(() => {
+      updateDailyStatsFromDatabase();
+    }, 5 * 60 * 1000); // 5 minutes
+    
+    return () => clearInterval(interval);
+  }, [userRole]);
+
   // Helper function to get submitted assignments count for parents
   const getSubmittedAssignmentsCount = () => {
     if (userRole !== 'parent') return 0;
     return submissions.length;
+  };
+
+  // Helper function to get completed assignments count for parents
+  const getCompletedAssignmentsCount = () => {
+    if (userRole !== 'parent') return 0;
+    return submissions.filter(sub => sub.status === 'approved' || sub.status === 'completed').length;
+  };
+
+  // Helper function to get incomplete assignments count for parents
+  const getIncompleteAssignmentsCount = () => {
+    if (userRole !== 'parent') return 0;
+    return assignments.filter(assignment => {
+      const submission = findSubmissionByAssignment(assignment.id);
+      return !submission || (submission.status !== 'approved' && submission.status !== 'completed');
+    }).length;
+  };
+
+  // Function to update daily stats from database for parents
+  const updateDailyStatsFromDatabase = async () => {
+    if (userRole !== 'parent' || !studentInfo?.id) return;
+    
+    try {
+      const today = new Date().toISOString().split('T')[0];
+      
+      // Get study time from database
+      const studyTimeEntry = await StudyTimeService.getOrCreateStudyTimeEntry(studentInfo.id, today);
+      const dbStudyTime = studyTimeEntry.totalMinutes;
+      
+      // Get completed assignments from database (submissions made today)
+      const todaySubmissions = submissions.filter(sub => {
+        const submissionDate = new Date(sub.submittedAt).toISOString().split('T')[0];
+        return submissionDate === today && (sub.status === 'approved' || sub.status === 'completed');
+      });
+      const dbCompletedCount = todaySubmissions.length;
+      
+      // Update state with database values
+      setTodayMinutes(dbStudyTime);
+      setTodayCompletedAssignments(dbCompletedCount);
+      
+      console.log(`Updated daily stats from database: ${dbStudyTime}m study time, ${dbCompletedCount} completed assignments`);
+      console.log('Study time entry details:', studyTimeEntry);
+      console.log('Today submissions:', todaySubmissions);
+      console.log('Document ID being queried:', `${studentInfo.id}_${today}`);
+      console.log('Raw study time value from database:', dbStudyTime, 'Type:', typeof dbStudyTime);
+    } catch (error) {
+      console.error('Error updating daily stats from database:', error);
+      // Fallback to local storage values if database fails
+      setTodayMinutes(getTodayMinutes());
+      setTodayCompletedAssignments(getTodayCompletedAssignments());
+    }
   };
 
   // Helper function to find submission by assignment ID
@@ -421,6 +490,43 @@ export const AssignmentPage = ({ userRole }: AssignmentPageProps) => {
     console.log('All submissions:', submissions);
     console.log('Submissions for this assignment:', submissions.filter(sub => sub.assignmentId === assignmentId));
     return count;
+  };
+
+  // Helper functions for submission status display
+  const getSubmissionStatusColor = (status: string) => {
+    switch (status) {
+      case 'approved': 
+      case 'completed': return 'success';
+      case 'submitted':
+      case 'pending': return 'warning';
+      case 'needsRevision': return 'destructive';
+      case 'not_started': return 'secondary';
+      default: return 'secondary';
+    }
+  };
+
+  const getSubmissionStatusIcon = (status: string) => {
+    switch (status) {
+      case 'approved': 
+      case 'completed': return <CheckCircle className="h-4 w-4" />;
+      case 'submitted': return <Upload className="h-4 w-4" />;
+      case 'pending': return <Clock className="h-4 w-4" />;
+      case 'needsRevision': return <Target className="h-4 w-4" />;
+      case 'not_started': return <BookOpen className="h-4 w-4" />;
+      default: return <BookOpen className="h-4 w-4" />;
+    }
+  };
+
+  const getSubmissionStatusText = (status: string) => {
+    switch (status) {
+      case 'approved': return 'Approved';
+      case 'completed': return 'Completed';
+      case 'submitted': return 'Submitted';
+      case 'pending': return 'Pending';
+      case 'needsRevision': return 'Needs Revision';
+      case 'not_started': return 'Not Started';
+      default: return 'Unknown';
+    }
   };
 
   // Safe rendering function for feedback
@@ -641,6 +747,9 @@ export const AssignmentPage = ({ userRole }: AssignmentPageProps) => {
           const today = new Date().toISOString().split('T')[0];
           await StudyTimeService.addStudyTime(studentInfo.id, today, minutes);
           console.log(`Added ${minutes} minutes to study time for student ${studentInfo.id}`);
+          
+          // Update daily stats after study time update
+          updateDailyStatsFromDatabase();
         } catch (error) {
           console.error('Error updating study time in Firestore:', error);
           toast({
@@ -854,6 +963,11 @@ export const AssignmentPage = ({ userRole }: AssignmentPageProps) => {
         if (studentInfo?.id) {
           const today = new Date().toISOString().split('T')[0];
           await StudyTimeService.addStudyTime(studentInfo.id, today, Math.ceil(timeSpent / 60));
+          
+          // Update daily stats after study time update
+          if (userRole === 'parent') {
+            updateDailyStatsFromDatabase();
+          }
         }
       } catch (studyTimeError) {
         console.warn('Could not update study time:', studyTimeError);
@@ -877,6 +991,12 @@ export const AssignmentPage = ({ userRole }: AssignmentPageProps) => {
       };
 
       setSubmissions(prev => [newSubmission, ...prev]);
+      
+      // Update daily stats after successful submission
+      if (userRole === 'parent') {
+        console.log('Updating daily stats after submission...');
+        updateDailyStatsFromDatabase();
+      }
       
       // Clear the stored final time for this assignment
       setFinalStopwatchTime(prev => {
@@ -1125,10 +1245,34 @@ export const AssignmentPage = ({ userRole }: AssignmentPageProps) => {
 
   const filteredAssignments = assignments.filter(assignment => {
     if (filterStatus === "all") return true;
+    
+    // For parents, filter based on submission status, not assignment status
     if (userRole === "parent") {
-      // For parents, show all assignments including completed ones
-      return assignment.status === filterStatus || 
-             (filterStatus === "active" && assignment.status === "completed");
+      const submission = findSubmissionByAssignment(assignment.id);
+      
+      if (filterStatus === "incomplete") {
+        // Show assignments that are not completed from submission perspective
+        return !submission || (submission.status !== 'approved' && submission.status !== 'completed');
+      }
+      if (filterStatus === "completed") {
+        // Show assignments that are completed from submission perspective
+        return submission && (submission.status === 'approved' || submission.status === 'completed');
+      }
+      if (filterStatus === "active") {
+        // Show active assignments (not archived)
+        return assignment.status === "active";
+      }
+      if (filterStatus === "archived") {
+        // Show archived assignments
+        return assignment.status === "archived";
+      }
+      return true;
+    }
+    
+    // For teachers/admins, filter based on assignment status
+    if (filterStatus === "incomplete") {
+      // Show assignments that are not completed (active, pending, etc.)
+      return assignment.status !== "completed" && assignment.status !== "archived";
     }
     return assignment.status === filterStatus;
   });
@@ -1215,6 +1359,19 @@ export const AssignmentPage = ({ userRole }: AssignmentPageProps) => {
         variant: "destructive"
       });
     }
+  };
+
+  // Helper function to toggle assignment expansion
+  const toggleAssignmentExpansion = (assignmentId: string) => {
+    setExpandedAssignments(prev => {
+      const newSet = new Set(prev);
+      if (newSet.has(assignmentId)) {
+        newSet.delete(assignmentId);
+      } else {
+        newSet.add(assignmentId);
+      }
+      return newSet;
+    });
   };
 
   // New handler functions for enhanced parent functionality
@@ -1402,6 +1559,8 @@ export const AssignmentPage = ({ userRole }: AssignmentPageProps) => {
                 <div>
                   <p className="text-blue-100 text-sm">Study Time Today</p>
                   <p className="text-3xl font-bold">{todayMinutes}m</p>
+                  {/* Debug info - remove in production */}
+                  <p className="text-xs text-blue-200">Debug: {JSON.stringify({ todayMinutes, userRole, studentInfo: studentInfo?.id })}</p>
                 </div>
                 <Clock className="h-8 w-8 text-blue-200" />
               </div>
@@ -1459,6 +1618,7 @@ export const AssignmentPage = ({ userRole }: AssignmentPageProps) => {
             <SelectContent>
               <SelectItem value="all">All Assignments</SelectItem>
               <SelectItem value="active">Active</SelectItem>
+              <SelectItem value="incomplete">Incomplete</SelectItem>
               {userRole === "parent" && (
                 <SelectItem value="completed">Completed</SelectItem>
               )}
@@ -1493,7 +1653,7 @@ export const AssignmentPage = ({ userRole }: AssignmentPageProps) => {
               <div>
                 <p className="text-2xl font-bold">
                   {userRole === "parent" 
-                    ? getSubmittedAssignmentsCount() // Show completed assignments count for parents
+                    ? getCompletedAssignmentsCount() // Show completed assignments count for parents
                     : assignments.filter(a => a.status === "active").length // Show active assignments for teachers/admins
                   }
                 </p>
@@ -1505,19 +1665,37 @@ export const AssignmentPage = ({ userRole }: AssignmentPageProps) => {
           </CardContent>
         </Card>
 
-        <Card className="border-l-4 border-l-warning">
-          <CardContent className="p-4">
-            <div className="flex items-center space-x-3">
-              <MessageCircle className="h-8 w-8 text-warning" />
-              <div>
-                <p className="text-2xl font-bold">
-                  {assignments.reduce((total, a) => total + (a.commentCount || 0), 0)}
-                </p>
-                <p className="text-sm text-muted-foreground">Total Comments</p>
+        {userRole === "parent" ? (
+          // For parents, show incomplete assignments count
+          <Card className="border-l-4 border-l-warning">
+            <CardContent className="p-4">
+              <div className="flex items-center space-x-3">
+                <Target className="h-8 w-8 text-warning" />
+                <div>
+                  <p className="text-2xl font-bold">
+                    {getIncompleteAssignmentsCount()}
+                  </p>
+                  <p className="text-sm text-muted-foreground">Incomplete</p>
+                </div>
               </div>
-            </div>
-          </CardContent>
-        </Card>
+            </CardContent>
+          </Card>
+        ) : (
+          // For teachers/admins, show total comments
+          <Card className="border-l-4 border-l-warning">
+            <CardContent className="p-4">
+              <div className="flex items-center space-x-3">
+                <MessageCircle className="h-8 w-8 text-warning" />
+                <div>
+                  <p className="text-2xl font-bold">
+                    {assignments.reduce((total, a) => total + (a.commentCount || 0), 0)}
+                  </p>
+                  <p className="text-sm text-muted-foreground">Total Comments</p>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        )}
 
         {/* Removed Active Rate card */}
       </div>
@@ -1534,17 +1712,60 @@ export const AssignmentPage = ({ userRole }: AssignmentPageProps) => {
                   <div className="space-y-2">
                     <div className="flex items-center space-x-3">
                       <CardTitle className="text-lg">{assignment.title}</CardTitle>
-                      <Badge variant={getStatusColor(assignment.status)} className="flex items-center space-x-1">
-                        {getStatusIcon(assignment.status)}
-                        <span className="capitalize">{assignment.status}</span>
+                      
+                      {/* Assignment Type with Icon */}
+                      <Badge variant="outline" className="flex items-center space-x-1">
+                        {(() => {
+                          const typeIcons = {
+                            'alphabet-time': '🔤',
+                            'vocabulary-time': '📚',
+                            'sight-words-time': '👁️',
+                            'reading-time': '📖',
+                            'post-programme-test': '📝'
+                          };
+                          return typeIcons[assignment.type] || '📋';
+                        })()}
+                        {assignment.type.replace(/-/g, ' ').replace(/\b\w/g, l => l.toUpperCase())}
                       </Badge>
-                      {/* Show completion status for parents */}
-                      {userRole === "parent" && findSubmissionByAssignment(assignment.id) && (
-                        <Badge variant="success" className="flex items-center space-x-1">
-                          <CheckCircle className="h-4 w-4" />
-                          <span>Completed</span>
+                      
+                      {/* Points Badge */}
+                      <Badge variant="secondary" className="bg-blue-100 text-blue-700 border-blue-200">
+                        ⭐ {assignment.points} pts
+                      </Badge>
+                      
+                      {/* Assignment Status */}
+                      {userRole === "parent" ? (
+                        // For parents, show submission status instead of assignment status
+                        (() => {
+                          const submission = findSubmissionByAssignment(assignment.id);
+                          if (!submission) {
+                            return (
+                              <Badge variant="secondary" className="flex items-center space-x-1">
+                                <BookOpen className="h-4 w-4" />
+                                <span>Not Started</span>
+                              </Badge>
+                            );
+                          }
+                          
+                          const statusColor = getSubmissionStatusColor(submission.status);
+                          const statusIcon = getSubmissionStatusIcon(submission.status);
+                          const statusText = getSubmissionStatusText(submission.status);
+                          
+                          return (
+                            <Badge variant={statusColor} className="flex items-center space-x-1">
+                              {statusIcon}
+                              <span>{statusText}</span>
+                            </Badge>
+                          );
+                        })()
+                      ) : (
+                        // For teachers/admins, show assignment status
+                        <Badge variant={getStatusColor(assignment.status)} className="flex items-center space-x-1">
+                          {getStatusIcon(assignment.status)}
+                          <span className="capitalize">{assignment.status}</span>
                         </Badge>
                       )}
+                      
                       {/* Show submissions count for teachers */}
                       {userRole === "teacher" && (
                         <>
@@ -1569,7 +1790,35 @@ export const AssignmentPage = ({ userRole }: AssignmentPageProps) => {
                          <Calendar className="h-4 w-4" />
                          <span>Due: {formatDueDate(assignment.dueDate)}</span>
                        </div>
-                      <Badge variant="outline">{assignment.type}</Badge>
+                      
+                      {/* Due Date Status Badge */}
+                      {(() => {
+                        const now = new Date();
+                        const dueDate = new Date(assignment.dueDate);
+                        const daysUntilDue = Math.ceil((dueDate.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
+                        
+                        if (daysUntilDue < 0) {
+                          return (
+                            <Badge variant="destructive" className="bg-red-100 text-red-700 border-red-200">
+                              ⏰ Overdue
+                            </Badge>
+                          );
+                        } else if (daysUntilDue <= 3) {
+                          return (
+                            <Badge variant="warning" className="bg-orange-100 text-orange-700 border-orange-200">
+                              ⏰ Due Soon
+                            </Badge>
+                          );
+                        } else if (daysUntilDue <= 7) {
+                          return (
+                            <Badge variant="outline" className="bg-yellow-100 text-yellow-600 border-yellow-200">
+                              📅 This Week
+                            </Badge>
+                          );
+                        }
+                        return null;
+                      })()}
+                      
                       <div className="flex items-center space-x-1">
                         <MessageCircle className="h-4 w-4" />
                         <span>{assignment.commentCount || 0} comments</span>
@@ -1578,6 +1827,19 @@ export const AssignmentPage = ({ userRole }: AssignmentPageProps) => {
                   </div>
 
                   <div className="flex items-center space-x-2">
+                    {/* Collapse/Expand Button */}
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => toggleAssignmentExpansion(assignment.id)}
+                      title={expandedAssignments.has(assignment.id) ? "Collapse" : "Expand"}
+                    >
+                      {expandedAssignments.has(assignment.id) ? (
+                        <ChevronUp className="h-4 w-4" />
+                      ) : (
+                        <ChevronDown className="h-4 w-4" />
+                      )}
+                    </Button>
                     <Button
                       variant="outline"
                       size="sm"
@@ -1641,8 +1903,10 @@ export const AssignmentPage = ({ userRole }: AssignmentPageProps) => {
                 </div>
               </CardHeader>
               
-              <CardContent className="space-y-4">
-                <p className="text-muted-foreground">{assignment.description}</p>
+              {/* Collapsible Content */}
+              {expandedAssignments.has(assignment.id) ? (
+                <CardContent className="space-y-4">
+                  <p className="text-muted-foreground">{assignment.description}</p>
                 
                 {/* Time Spent Display */}
                 {userRole === "parent" && currentAssignmentId === assignment.id && elapsedSec > 0 && (
@@ -1949,8 +2213,23 @@ export const AssignmentPage = ({ userRole }: AssignmentPageProps) => {
                       onCommentDeleted={(commentId) => handleCommentDeleted(assignment.id, commentId)}
                     />
                   </div>
-                )}
-              </CardContent>
+                                  )}
+                </CardContent>
+              ) : (
+                <CardContent className="p-3">
+                  <div className="flex items-center justify-between text-sm text-muted-foreground">
+                    <span>{assignment.description.length > 100 ? `${assignment.description.substring(0, 100)}...` : assignment.description}</span>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => toggleAssignmentExpansion(assignment.id)}
+                      className="text-primary hover:text-primary"
+                    >
+                      Show More
+                    </Button>
+                  </div>
+                </CardContent>
+              )}
             </Card>
           ))}
         </div>

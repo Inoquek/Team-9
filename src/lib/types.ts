@@ -109,10 +109,15 @@ export interface ClassSummary {
   
   // Performance distribution (anonymized)
   performanceDistribution: {
-    blooming: number;      // 90-100%
-    sprout: number;        // 60-89%
-    seedling: number;      // 1-59%
-    seed: number;          // 0%
+    fruiting: number;      // 95-100%
+    blooming: number;      // 90-94%
+    flowering: number;     // 80-89%
+    budding: number;       // 70-79%
+    sprout: number;        // 60-69%
+    growing: number;       // 45-59%
+    seedling: number;      // 25-44%
+    germinating: number;   // 10-24%
+    seed: number;          // 0-9%
   };
   
   // Recent activity (last 7 days)
@@ -127,7 +132,7 @@ export interface GardenStudentData {
   id: string;
   name: string;
   completionRate: number;
-  stage: 'seed' | 'seedling' | 'sprout' | 'blooming';
+  stage: 'seed' | 'germinating' | 'seedling' | 'growing' | 'sprout' | 'budding' | 'flowering' | 'blooming' | 'fruiting';
   totalAssignments: number;
   completedAssignments: number;
   totalPoints: number;

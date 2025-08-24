@@ -46,6 +46,8 @@ export const StudyTimeDashboard: React.FC<StudyTimeDashboardProps> = ({
         
         // Load today's stats
         const today = await StudyTimeService.getTodayStudyTime(studentId);
+        console.log('StudyTimeDashboard - Today stats loaded:', today);
+        console.log('StudyTimeDashboard - Student ID:', studentId);
         setTodayStats(today);
         
         // Load weekly stats
@@ -224,6 +226,8 @@ export const StudyTimeDashboard: React.FC<StudyTimeDashboardProps> = ({
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">{totalMinutes}m</div>
+            {/* Debug info - remove in production */}
+            <p className="text-xs text-red-500">Debug: totalMinutes={totalMinutes}, timeRange={timeRange}, todayStats={JSON.stringify(todayStats)}</p>
             <p className="text-xs text-muted-foreground">
               Goal: {goalMinutes}m
             </p>

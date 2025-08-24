@@ -37,7 +37,7 @@ export class StudyTimeService {
         
         await setDoc(docRef, newEntry);
         return {
-          id: docSnap.id,
+          id: docRef.id,
           ...newEntry
         };
       }

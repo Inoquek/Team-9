@@ -57,9 +57,14 @@ export class GardenService {
       
       // Calculate performance distribution
       const performanceDistribution = {
+        fruiting: studentData.filter(s => s.stage === 'fruiting').length,
         blooming: studentData.filter(s => s.stage === 'blooming').length,
+        flowering: studentData.filter(s => s.stage === 'flowering').length,
+        budding: studentData.filter(s => s.stage === 'budding').length,
         sprout: studentData.filter(s => s.stage === 'sprout').length,
+        growing: studentData.filter(s => s.stage === 'growing').length,
         seedling: studentData.filter(s => s.stage === 'seedling').length,
+        germinating: studentData.filter(s => s.stage === 'germinating').length,
         seed: studentData.filter(s => s.stage === 'seed').length,
       };
       
@@ -269,9 +274,14 @@ export class GardenService {
         totalAssignments: relevantAssignments.length,
         completedAssignments: 0,
         performanceDistribution: {
+          fruiting: 0,
           blooming: 0,
+          flowering: 0,
+          budding: 0,
           sprout: 0,
+          growing: 0,
           seedling: 0,
+          germinating: 0,
           seed: students.length, // All students start as seeds
         },
         recentActivity: {
@@ -294,11 +304,16 @@ export class GardenService {
     }
   }
   
-  // Helper function to get stage from percentage
-  private static getStageFromPercentage(percentage: number): 'seed' | 'seedling' | 'sprout' | 'blooming' {
+  // Helper function to get stage from percentage with more granular stages
+  private static getStageFromPercentage(percentage: number): 'seed' | 'germinating' | 'seedling' | 'growing' | 'sprout' | 'budding' | 'flowering' | 'blooming' | 'fruiting' {
+    if (percentage >= 95) return 'fruiting';
     if (percentage >= 90) return 'blooming';
+    if (percentage >= 80) return 'flowering';
+    if (percentage >= 70) return 'budding';
     if (percentage >= 60) return 'sprout';
-    if (percentage > 0) return 'seedling';
+    if (percentage >= 45) return 'growing';
+    if (percentage >= 25) return 'seedling';
+    if (percentage >= 10) return 'germinating';
     return 'seed';
   }
   

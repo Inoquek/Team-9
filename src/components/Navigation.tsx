@@ -21,12 +21,17 @@ import { User as UserType } from "@/lib/types";
 
 interface AppSidebarProps {
   user: UserType;
-  currentPage: "dashboard" | "assignments" | "announcements" | "metrics" | "garden" | "parentGarden" | "forum"; // 添加forum
-  onNavigate: (page: "dashboard" | "assignments" | "announcements" | "metrics" | "garden" | "parentGarden" | "forum") => void; // 添加forum
+  currentPage: "dashboard" | "assignments" | "announcements" | "metrics" | "parentGarden" | "forum"; // 添加forum
+  onNavigate: (page: "dashboard" | "assignments" | "announcements" | "metrics" | "parentGarden" | "forum") => void; // 添加forum
+  badgeCounts?: {
+    assignments?: number;
+    announcements?: number;
+  };
+  onClearBadge?: (type: 'assignments' | 'announcements') => void;
 }
 
 
-export const AppSidebar = ({ user, currentPage, onNavigate, badgeCounts }: AppSidebarProps) => {
+export const AppSidebar = ({ user, currentPage, onNavigate, badgeCounts, onClearBadge }: AppSidebarProps) => {
   const { state } = useSidebar();
   const { signOut } = useAuth();
   const isCollapsed = state === "collapsed";
@@ -42,13 +47,13 @@ export const AppSidebar = ({ user, currentPage, onNavigate, badgeCounts }: AppSi
       title: "Assignments", 
       page: "assignments" as const,
       icon: BookOpen,
-      badge: user.role === "parent" && badgeCounts ? badgeCounts.assignments : null,
+      badge: user.role === "parent" && badgeCounts && badgeCounts.assignments > 0 ? badgeCounts.assignments : null,
     },
     {
       title: "Announcements",
       page: "announcements" as const, 
       icon: Bell,
-      badge: user.role === "parent" && badgeCounts ? badgeCounts.announcements : null,
+      badge: user.role === "parent" && badgeCounts && badgeCounts.announcements > 0 ? badgeCounts.announcements : null,
     },
     // + NEW: Metrics (visible to parents & teachers)
     {
@@ -57,13 +62,6 @@ export const AppSidebar = ({ user, currentPage, onNavigate, badgeCounts }: AppSi
       icon: TrendingUp,
       badge: null,
     },
-    // Garden Game (teacher only)
-    ...(user.role === "teacher" ? [{
-      title: "Garden Game",
-      page: "garden" as const,
-      icon: Sprout,
-      badge: null,
-    }] : []),
     // Parent Garden (parent only)
     ...(user.role === "parent" ? [{
       title: "My Garden",
@@ -119,7 +117,17 @@ export const AppSidebar = ({ user, currentPage, onNavigate, badgeCounts }: AppSi
               {navigationItems.map((item) => (
                 <SidebarMenuItem key={item.page}>
                   <SidebarMenuButton
-                    onClick={() => onNavigate(item.page)}
+                    onClick={() => {
+                      // Clear badge when navigating to a page with notifications
+                      if (onClearBadge && item.badge) {
+                        if (item.page === 'assignments') {
+                          onClearBadge('assignments');
+                        } else if (item.page === 'announcements') {
+                          onClearBadge('announcements');
+                        }
+                      }
+                      onNavigate(item.page);
+                    }}
                     isActive={currentPage === item.page}
                     className="w-full justify-start"
                   >
