@@ -10,14 +10,14 @@ import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer,
   LineChart, Line, PieChart, Pie, Cell
 } from "recharts";
-import { TrendingUp, Users, Target, Trophy, AlertTriangle } from "lucide-react";
+import { TrendingUp, Users, Target, Trophy, AlertTriangle, Brain } from "lucide-react";
 
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { MoreHorizontal } from "lucide-react";
 
-import { collection, getDocs, query, where } from "firebase/firestore";
+import { collection, getDocs, query, where, addDoc } from "firebase/firestore";
 import { db } from "@/lib/firebase";
 
 import { useTeacherClass } from "@/contexts/TeacherClassContext";
@@ -26,6 +26,8 @@ import * as AssignmentService from "@/lib/services/assignments";
 import * as StudentsService from "@/lib/services/students";
 import * as StudyTimeService from "@/lib/services/studyTime";
 import * as ClassesService from "@/lib/services/classes";
+import AIRecommendationService, { ParentRecommendation } from "@/lib/services/aiRecommendations";
+import AIRecommendationWidget from "./AIRecommendationWidget";
 
 type Subject = "Math" | "Science" | "Reading" | "Writing" | "Art";
 type SubjectPerf = { subject: Subject; childAvg: number; classAvg: number };
@@ -804,6 +806,91 @@ const GuardianSection: React.FC<{ student: StudentLite }> = ({ student }) => {
             </div>
           )}
           <p className="text-sm text-muted-foreground mt-2">Cumulative academic performance progression over time across all subjects</p>
+          </CardContent>
+        </Card>
+
+        {/* AI Recommendations Section */}
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Brain className="h-5 w-5 text-purple-600" />
+              AI Learning Recommendations
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <AIRecommendationWidget 
+              parentId={useAuth().user?.uid || ''} 
+              showChinese={true}
+              onViewAll={() => {
+                console.log('Navigate to full recommendations page');
+              }}
+            />
+            
+            {/* Test Button for Generating Recommendations */}
+            <div className="mt-4 pt-4 border-t border-gray-200">
+              <Button 
+                variant="outline" 
+                size="sm"
+                onClick={async () => {
+                  const { user } = useAuth();
+                  const { toast } = useToast();
+                  
+                  try {
+                    if (!user?.uid) {
+                      toast({
+                        title: "Error",
+                        description: "Please make sure you're logged in.",
+                        variant: "destructive"
+                      });
+                      return;
+                    }
+                    
+                    // Create a test student context
+                    const testContext = {
+                      studentId: student.id,
+                      name: student.name || 'Student',
+                      classId: student.classId || 'default_class',
+                      parentId: user.uid,
+                      recentGrades: [85, 92, 78, 88],
+                      completionRate: 85,
+                      studyTimeMinutes: 120,
+                      upcomingDeadlines: [
+                        {
+                          assignmentTitle: 'Math Homework',
+                          dueDate: new Date(Date.now() + 2 * 24 * 60 * 60 * 1000),
+                          subject: 'Mathematics'
+                        }
+                      ],
+                      strugglingSubjects: ['Physics'],
+                      parentEngagementLevel: 'medium' as const
+                    };
+                    
+                    const result = await AIRecommendationService.generateRecommendation(testContext);
+                    
+                    toast({
+                      title: "AI Recommendation Generated!",
+                      description: "New personalized recommendation created based on your child's progress.",
+                    });
+                    
+                    // Refresh the page to show new recommendations
+                    setTimeout(() => {
+                      window.location.reload();
+                    }, 1000);
+                    
+                  } catch (error) {
+                    console.error('Error generating recommendation:', error);
+                    toast({
+                      title: "Error",
+                      description: "Failed to generate recommendation. Please try again.",
+                      variant: "destructive"
+                    });
+                  }
+                }}
+                className="w-full"
+              >
+                🧠 Generate New AI Recommendation
+              </Button>
+            </div>
           </CardContent>
         </Card>
     </div>

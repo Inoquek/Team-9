@@ -3,6 +3,8 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { collection, query, where, getDocs } from 'firebase/firestore';
+import { db } from '@/lib/firebase';
 import {
   Calendar,
   BookOpen,
@@ -36,8 +38,6 @@ import { AnnouncementService } from "@/lib/services/announcements";
 import { Assignment, AssignmentWithComments, AnnouncementWithComments, Comment } from "@/lib/types";
 import { CommentSection } from "./CommentSection";
 import { FileViewer } from "./FileViewer";
-import { collection, query, where, getDocs } from "firebase/firestore";
-import { db } from "@/lib/firebase";
 
 // ---- storage keys (match the feature pages)
 const DAILY_KEY = "parent_daily_stats_v1"; // new
@@ -570,10 +570,14 @@ export const ParentDashboard = ({ onNavigate, onBadgeCountsUpdate }: ParentDashb
     <div className="space-y-6">
       {/* Welcome Section */}
       <div className="bg-gradient-to-r from-primary/10 to-secondary/10 rounded-2xl p-6">
-        <h1 className="text-2xl font-bold text-foreground mb-2">Good morning, {user?.displayName || 'Parent'}! 👋</h1>
-        <p className="text-muted-foreground">
-          Your child has {activeAssignments.length} active assignment{activeAssignments.length === 1 ? "" : "s"} and {newAnnouncements48h} new announcement{newAnnouncements48h === 1 ? "" : "s"}.
-        </p>
+        <div className="flex justify-between items-start">
+          <div>
+            <h1 className="text-2xl font-bold text-foreground mb-2">Good morning, {user?.displayName || 'Parent'}! 👋</h1>
+            <p className="text-muted-foreground">
+              Your child has {activeAssignments.length} active assignment{activeAssignments.length === 1 ? "" : "s"} and {newAnnouncements48h} new announcement{newAnnouncements48h === 1 ? "" : "s"}.
+            </p>
+          </div>
+        </div>
       </div>
 
       {/* Daily Learning Streak */}
@@ -638,7 +642,7 @@ export const ParentDashboard = ({ onNavigate, onBadgeCountsUpdate }: ParentDashb
       </Card>
 
       {/* Quick Stats */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
         <Card className="border-l-4 border-l-primary">
           <CardContent className="p-4">
             <div className="flex items-center space-x-3">
@@ -674,6 +678,7 @@ export const ParentDashboard = ({ onNavigate, onBadgeCountsUpdate }: ParentDashb
             </div>
           </CardContent>
         </Card>
+
       </div>
 
       {/* Recent Assignments (live from Firebase) */}
