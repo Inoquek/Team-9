@@ -104,33 +104,36 @@ export const UserEditForm: React.FC<UserEditFormProps> = ({ user, classes, onSav
 
   return (
     <form onSubmit={handleSubmit} className="space-y-4">
-      <div className="space-y-2">
-        <Label htmlFor="edit-displayName">Display Name</Label>
-        <Input
-          id="edit-displayName"
-          value={formData.displayName}
-          onChange={(e) => setFormData(prev => ({ ...prev, displayName: e.target.value }))}
-          required
-        />
-      </div>
-      
-      <div className="space-y-2">
-        <Label htmlFor="edit-role">Role</Label>
-        <Select
-          value={formData.role}
-          onValueChange={(value: "parent" | "teacher" | "admin") => 
-            setFormData(prev => ({ ...prev, role: value }))
-          }
-        >
-          <SelectTrigger>
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="parent">👨‍👩‍👧‍👦 Parent</SelectItem>
-            <SelectItem value="teacher">🏫 Teacher</SelectItem>
-            <SelectItem value="admin">👑 Admin</SelectItem>
-          </SelectContent>
-        </Select>
+      {/* Basic User Information - 2 column grid */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div className="space-y-2">
+          <Label htmlFor="edit-displayName">Display Name</Label>
+          <Input
+            id="edit-displayName"
+            value={formData.displayName}
+            onChange={(e) => setFormData(prev => ({ ...prev, displayName: e.target.value }))}
+            required
+          />
+        </div>
+        
+        <div className="space-y-2">
+          <Label htmlFor="edit-role">Role</Label>
+          <Select
+            value={formData.role}
+            onValueChange={(value: "parent" | "teacher" | "admin") => 
+              setFormData(prev => ({ ...prev, role: value }))
+            }
+          >
+            <SelectTrigger>
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="parent">👨‍👩‍👧‍👦 Parent</SelectItem>
+              <SelectItem value="teacher">🏫 Teacher</SelectItem>
+              <SelectItem value="admin">👑 Admin</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
       </div>
 
       <div className="space-y-2">
@@ -180,40 +183,42 @@ export const UserEditForm: React.FC<UserEditFormProps> = ({ user, classes, onSav
 
       {/* Student Information Section (for parent users) */}
       {user.role === 'parent' && studentData && (
-        <div className="space-y-4 p-4 bg-muted/50 rounded-lg">
-          <h4 className="font-medium">Student Information</h4>
+        <div className="space-y-3 p-3 bg-muted/50 rounded-lg">
+          <h4 className="font-medium text-sm">Student Information</h4>
           
           {isLoadingStudent ? (
             <p className="text-sm text-muted-foreground">Loading student data...</p>
           ) : (
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label htmlFor="edit-student-name">Student Name</Label>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+              <div className="space-y-1">
+                <Label htmlFor="edit-student-name" className="text-sm">Student Name</Label>
                 <Input
                   id="edit-student-name"
                   value={studentData.name}
                   onChange={(e) => setStudentData(prev => prev ? { ...prev, name: e.target.value } : null)}
                   required
+                  className="h-9"
                 />
               </div>
               
-              <div className="space-y-2">
-                <Label htmlFor="edit-student-grade">Student Grade</Label>
+              <div className="space-y-1">
+                <Label htmlFor="edit-student-grade" className="text-sm">Student Grade</Label>
                 <Input
                   id="edit-student-grade"
                   value={studentData.grade}
                   onChange={(e) => setStudentData(prev => prev ? { ...prev, grade: e.target.value } : null)}
                   required
+                  className="h-9"
                 />
               </div>
               
-              <div className="space-y-2 md:col-span-2">
-                <Label htmlFor="edit-student-class">Student Class</Label>
+              <div className="space-y-1 md:col-span-2">
+                <Label htmlFor="edit-student-class" className="text-sm">Student Class</Label>
                 <Select
                   value={studentData.classId || 'none'}
                   onValueChange={(value) => setStudentData(prev => prev ? { ...prev, classId: value === 'none' ? null : value } : null)}
                 >
-                  <SelectTrigger>
+                  <SelectTrigger className="h-9">
                     <SelectValue placeholder="Select a class" />
                   </SelectTrigger>
                   <SelectContent>
@@ -246,7 +251,7 @@ export const UserEditForm: React.FC<UserEditFormProps> = ({ user, classes, onSav
         </p>
       </div>
 
-      <div className="flex gap-2">
+      <div className="flex gap-2 pt-2">
         <Button type="submit" className="flex-1">
           Save Changes
         </Button>

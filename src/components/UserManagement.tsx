@@ -249,7 +249,7 @@ export const UserManagement: React.FC<UserManagementProps> = ({ onBack, classes 
 
       {/* User Edit Dialog */}
       <Dialog open={isEditingUser} onOpenChange={setIsEditingUser}>
-        <DialogContent className="max-w-md">
+        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>Edit User: {editingUser?.displayName}</DialogTitle>
           </DialogHeader>
