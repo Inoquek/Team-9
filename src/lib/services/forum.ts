@@ -96,20 +96,30 @@ export class ForumService {
     }
   }
 
-  // Delete forum post
+  // Delete forum post with cascading deletes
   static async deletePost(id: string): Promise<void> {
     try {
-      // Also delete all comments for this post
+      console.log(`Starting cascading delete for forum post: ${id}`);
+      
+      // 1. Delete all comments for this post
       const commentsQuery = query(collection(db, 'forum_comments'), where('postId', '==', id));
       const commentsSnapshot = await getDocs(commentsQuery);
       
-      const deletePromises = commentsSnapshot.docs.map(commentDoc => 
-        deleteDoc(doc(db, 'forum_comments', commentDoc.id))
-      );
-      await Promise.all(deletePromises);
+      if (!commentsSnapshot.empty) {
+        console.log(`Found ${commentsSnapshot.docs.length} comments to delete`);
+        const deletePromises = commentsSnapshot.docs.map(commentDoc => 
+          deleteDoc(doc(db, 'forum_comments', commentDoc.id))
+        );
+        await Promise.all(deletePromises);
+        console.log(`Deleted ${commentsSnapshot.docs.length} comments`);
+      } else {
+        console.log('No comments found to delete');
+      }
 
-      // Delete the post
+      // 2. Delete the post itself
       await deleteDoc(doc(db, 'forum_posts', id));
+      console.log(`Forum post ${id} deleted successfully`);
+      
     } catch (error) {
       console.error('Delete forum post error:', error);
       throw error;

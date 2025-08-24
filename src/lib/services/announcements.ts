@@ -92,10 +92,30 @@ export class AnnouncementService {
     }
   }
 
-  // Delete announcement
+  // Delete announcement with cascading deletes
   static async deleteAnnouncement(id: string): Promise<void> {
     try {
+      console.log(`Starting cascading delete for announcement: ${id}`);
+      
+      // 1. Delete all comments for this announcement
+      const commentsQuery = query(
+        collection(db, 'announcements', id, 'comments')
+      );
+      const commentsSnapshot = await getDocs(commentsQuery);
+      
+      if (!commentsSnapshot.empty) {
+        console.log(`Found ${commentsSnapshot.docs.length} comments to delete`);
+        const deleteCommentPromises = commentsSnapshot.docs.map(doc => 
+          deleteDoc(doc.ref)
+        );
+        await Promise.all(deleteCommentPromises);
+        console.log(`Deleted ${commentsSnapshot.docs.length} comments`);
+      }
+      
+      // 2. Delete the announcement itself
       await deleteDoc(doc(db, 'announcements', id));
+      console.log(`Announcement ${id} deleted successfully`);
+      
     } catch (error) {
       console.error('Delete announcement error:', error);
       throw error;
