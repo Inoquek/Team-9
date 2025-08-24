@@ -81,7 +81,12 @@ import { Assignment, Submission, Feedback, Comment, AssignmentWithComments } fro
       // Filter by status and sort in memory (avoids composite index requirement)
       assignments = assignments
         .filter(assignment => assignment.status === 'active' || assignment.status === 'completed')
-        .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+        .sort((a, b) => {
+          // Sort by due date (soonest first)
+          const dueDateA = new Date(a.dueDate).getTime();
+          const dueDateB = new Date(b.dueDate).getTime();
+          return dueDateA - dueDateB;
+        });
       
       return assignments;
     } catch (error) {
@@ -112,8 +117,10 @@ import { Assignment, Submission, Feedback, Comment, AssignmentWithComments } fro
         const statusDiff = (statusOrder[a.status] || 0) - (statusOrder[b.status] || 0);
         if (statusDiff !== 0) return statusDiff;
         
-        // Then by creation date (newest first)
-        return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
+        // Then by due date (soonest first)
+        const dueDateA = new Date(a.dueDate).getTime();
+        const dueDateB = new Date(b.dueDate).getTime();
+        return dueDateA - dueDateB;
       });
       
       return assignments;
@@ -154,7 +161,12 @@ import { Assignment, Submission, Feedback, Comment, AssignmentWithComments } fro
         // Filter and sort in memory
         assignments = assignments
           .filter(assignment => assignment.status === 'active')
-          .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+          .sort((a, b) => {
+            // Sort by due date (soonest first)
+            const dueDateA = new Date(a.dueDate).getTime();
+            const dueDateB = new Date(b.dueDate).getTime();
+            return dueDateA - dueDateB;
+          });
         
         return assignments;
       } catch (error) {
@@ -285,7 +297,12 @@ import { Assignment, Submission, Feedback, Comment, AssignmentWithComments } fro
       // Filter and sort in memory
       assignments = assignments
         .filter(assignment => assignment.status === 'active')
-        .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+        .sort((a, b) => {
+          // Sort by due date (soonest first)
+          const dueDateA = new Date(a.dueDate).getTime();
+          const dueDateB = new Date(b.dueDate).getTime();
+          return dueDateA - dueDateB;
+        });
       
       callback(assignments);
     });

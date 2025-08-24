@@ -116,6 +116,7 @@ export const InClassGradeForm: React.FC<InClassGradeFormProps> = ({
     try {
       await SubmissionService.createBulkInClassGrades({
         assignmentId,
+        classId,
         grades: validGrades,
         teacherId
       });

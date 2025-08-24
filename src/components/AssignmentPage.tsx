@@ -1550,36 +1550,7 @@ export const AssignmentPage = ({ userRole }: AssignmentPageProps) => {
 
   return (
     <div className="space-y-6">
-      {/* Daily Stats Board - Only for parents */}
-      {userRole === "parent" && (
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <Card className="bg-gradient-to-r from-blue-500 to-blue-600 text-white">
-            <CardContent className="p-4">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-blue-100 text-sm">Study Time Today</p>
-                  <p className="text-3xl font-bold">{todayMinutes}m</p>
-                  {/* Debug info - remove in production */}
-                  <p className="text-xs text-blue-200">Debug: {JSON.stringify({ todayMinutes, userRole, studentInfo: studentInfo?.id })}</p>
-                </div>
-                <Clock className="h-8 w-8 text-blue-200" />
-              </div>
-            </CardContent>
-          </Card>
-          
-          <Card className="bg-gradient-to-r from-green-500 to-green-600 text-white">
-            <CardContent className="p-4">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-green-100 text-sm">Completed Today</p>
-                  <p className="text-3xl font-bold">{todayCompletedAssignments}</p>
-                </div>
-                <Trophy className="h-8 w-8 text-green-200" />
-              </div>
-            </CardContent>
-          </Card>
-        </div>
-      )}
+
 
       {/* Header */}
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
