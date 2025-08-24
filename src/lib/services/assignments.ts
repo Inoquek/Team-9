@@ -329,17 +329,35 @@ import {
     // Get student submissions
     static async getStudentSubmissions(studentId: string): Promise<Submission[]> {
       try {
+        console.log('getStudentSubmissions called with studentId:', studentId);
+        
         const q = query(
           collection(db, 'submissions'),
-          where('studentId', '==', studentId),
-          orderBy('submittedAt', 'desc')
+          where('studentId', '==', studentId)
+          // Temporarily removed orderBy to debug
         );
         
+        console.log('Query created:', q);
+        
         const querySnapshot = await getDocs(q);
-        return querySnapshot.docs.map(doc => ({
+        console.log('Query snapshot:', querySnapshot);
+        console.log('Query snapshot empty:', querySnapshot.empty);
+        console.log('Query snapshot size:', querySnapshot.size);
+        
+        if (!querySnapshot.empty) {
+          console.log('Query snapshot docs:', querySnapshot.docs);
+          querySnapshot.docs.forEach((doc, index) => {
+            console.log(`Doc ${index}:`, doc.id, doc.data());
+          });
+        }
+        
+        const results = querySnapshot.docs.map(doc => ({
           id: doc.id,
           ...doc.data()
         })) as Submission[];
+        
+        console.log('Final results:', results);
+        return results;
       } catch (error) {
         console.error('Get student submissions error:', error);
         throw error;
@@ -491,47 +509,64 @@ import {
       }
     }
 
-    // Create in-class grade submission (no files needed)
-    static async createInClassGrade(data: {
-      assignmentId: string;
-      studentId: string;
-      teacherId: string;
-      points: number;
-      notes?: string;
-      completionTimeMinutes?: number;
-    }): Promise<string> {
-      try {
-        const docRef = await addDoc(collection(db, 'submissions'), {
+      // Create placeholder submissions for all students in class
+  static async createPlaceholderSubmissions(data: {
+    assignmentId: string;
+    classId: string;
+    teacherId: string;
+  }): Promise<string[]> {
+    try {
+      // Get all students in the class
+      const studentsQuery = query(
+        collection(db, 'students'),
+        where('classId', '==', data.classId),
+        where('isActive', '==', true)
+      );
+      const studentsSnapshot = await getDocs(studentsQuery);
+      
+      const submissionIds: string[] = [];
+      
+      // Create a placeholder submission for each student
+      for (const studentDoc of studentsSnapshot.docs) {
+        const studentData = studentDoc.data();
+        const studentId = studentDoc.id;
+        
+        console.log(`Creating placeholder submission for student ${studentId} (${studentData.name})`);
+        
+        const submissionData = {
           assignmentId: data.assignmentId,
-          studentId: data.studentId,
-          parentId: data.teacherId, // Store teacher ID in parentId field
-          files: [], // No files for in-class grades
+          studentId: studentId,
+          parentId: studentData.parentId, // Use actual parent ID, not teacher ID
+          files: [], // No files for placeholder submissions
           submittedAt: new Date(),
-          status: 'approved', // Automatically approved since teacher graded it
-          points: data.points,
-          completionTimeMinutes: data.completionTimeMinutes || 0,
-          studyTimeToday: 0, // No study time tracking for in-class grades
-          feedback: {
-            id: 'in-class-grade',
-            teacherId: data.teacherId,
-            message: data.notes || 'Grade given for in-class performance',
-            emoji: '⭐',
-            points: data.points,
-            createdAt: new Date()
-          },
-          isInClassGrade: true, // Flag to identify in-class grades
-          submittedBy: 'teacher' // Indicates this was created by teacher
-        });
-        return docRef.id;
-      } catch (error) {
-        console.error('Create in-class grade error:', error);
-        throw error;
+          status: 'submitted', // Show as submitted to parents
+          points: 0, // No points assigned yet
+          completionTimeMinutes: 0, // No time tracked yet
+          studyTimeToday: 0, // No study time tracking
+          isInClassGrade: true, // Flag to identify in-class assignments
+          submittedBy: 'teacher', // Indicates this was created by teacher
+          isPlaceholder: true // Flag to identify placeholder submissions
+        };
+        
+        console.log('Submission data:', submissionData);
+        
+        const docRef = await addDoc(collection(db, 'submissions'), submissionData);
+        console.log(`Created submission with ID: ${docRef.id}`);
+        
+        submissionIds.push(docRef.id);
       }
+      
+      return submissionIds;
+    } catch (error) {
+      console.error('Create placeholder submissions error:', error);
+      throw error;
     }
+  }
 
     // Bulk create grades for multiple students
     static async createBulkInClassGrades(data: {
       assignmentId: string;
+      classId: string;
       grades: Array<{
         studentId: string;
         points: number;
@@ -544,15 +579,12 @@ import {
         const submissionIds: string[] = [];
         
         for (const grade of data.grades) {
-          const submissionId = await this.createInClassGrade({
+          const submissionId = await this.createPlaceholderSubmissions({
             assignmentId: data.assignmentId,
-            studentId: grade.studentId,
-            teacherId: data.teacherId,
-            points: grade.points,
-            notes: grade.notes,
-            completionTimeMinutes: grade.completionTimeMinutes
+            classId: data.classId || '',
+            teacherId: data.teacherId
           });
-          submissionIds.push(submissionId);
+          submissionIds.push(submissionId[0]); // Take first ID since createPlaceholderSubmissions returns array
         }
         
         return submissionIds;

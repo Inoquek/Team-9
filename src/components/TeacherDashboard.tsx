@@ -222,6 +222,7 @@ export const TeacherDashboard = ({ onNavigate }: TeacherDashboardProps) => {
   }, [assignments, announcements, formatTimeAgo]);
 
   const handleSuccess = () => {
+    console.log('handleSuccess called - closing modal and refreshing data');
     setCurrentView('dashboard');
     // Refresh data after successful creation
     if (selectedClass) {

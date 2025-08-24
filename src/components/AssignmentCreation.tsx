@@ -6,11 +6,13 @@ import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
+import { Switch } from '@/components/ui/switch';
 import { useToast } from '@/hooks/use-toast';
-import { Upload, File, X, Calendar, BookOpen, Users } from 'lucide-react';
-import { AssignmentService } from '@/lib/services/assignments';
+import { Upload, File, X, Calendar, BookOpen, Users, Star, CheckCircle } from 'lucide-react';
+import { AssignmentService, SubmissionService } from '@/lib/services/assignments';
 import { StorageService } from '@/lib/services/storage';
 import { useAuth } from '@/contexts/AuthContext';
+
 
 interface AssignmentCreationProps {
   classId: string;
@@ -84,7 +86,13 @@ export const AssignmentCreation: React.FC<AssignmentCreationProps> = ({
   
   const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
   const [isCreating, setIsCreating] = useState(false);
+  const [isInClassGraded, setIsInClassGraded] = useState(false);
+
   const { toast } = useToast();
+
+  const handleInClassGradedChange = (checked: boolean) => {
+    setIsInClassGraded(checked);
+  };
 
   const handleFileSelect = (event: React.ChangeEvent<HTMLInputElement>) => {
     const files = Array.from(event.target.files || []);
@@ -139,6 +147,7 @@ export const AssignmentCreation: React.FC<AssignmentCreationProps> = ({
       const assignmentData = {
         title: assignment.title.trim(),
         description: assignment.description.trim(),
+        category: assignment.type, // Use type as category
         type: assignment.type as any,
         dueDate: new Date(assignment.dueDate),
         teacherId: user.uid,
@@ -150,15 +159,38 @@ export const AssignmentCreation: React.FC<AssignmentCreationProps> = ({
         status: 'active' as const
       };
 
-      await AssignmentService.createAssignment(assignmentData);
+      const assignmentId = await AssignmentService.createAssignment(assignmentData);
 
       toast({
         title: "Assignment Created!",
         description: `${assignment.title} has been created successfully.`,
       });
 
+      // If this is an in-class graded assignment, create placeholder submissions
+      if (isInClassGraded) {
+        try {
+          console.log('Creating placeholder submissions for in-class assignment...');
+          await SubmissionService.createPlaceholderSubmissions({
+            assignmentId,
+            classId,
+            teacherId: user.uid
+          });
+          console.log('Placeholder submissions created successfully');
+        } catch (error) {
+          console.error('Error creating placeholder submissions:', error);
+          toast({
+            title: "Warning",
+            description: "Assignment created but placeholder submissions failed. You can still grade students manually.",
+            variant: "destructive"
+          });
+        }
+      }
+      
+      // Call onSuccess to close the modal
+      console.log('Assignment creation completed successfully, calling onSuccess()');
       onSuccess();
     } catch (error: any) {
+      console.error('Error creating assignment:', error);
       toast({
         title: "Creation Failed",
         description: error.message || "Something went wrong.",
@@ -283,6 +315,45 @@ export const AssignmentCreation: React.FC<AssignmentCreationProps> = ({
                 />
               </div>
             </div>
+
+            {/* In-Class Grade Toggle */}
+            <div className="flex items-center space-x-3 p-4 bg-muted rounded-lg">
+              <Switch
+                id="inClassGraded"
+                checked={isInClassGraded}
+                onCheckedChange={handleInClassGradedChange}
+              />
+              <div className="space-y-1">
+                <Label htmlFor="inClassGraded" className="text-sm font-medium">
+                  Auto-Submit for All Students
+                </Label>
+                <p className="text-xs text-muted-foreground">
+                  Check this to automatically create submissions for all students in the class. 
+                  You can then grade each student individually later through the submissions view.
+                </p>
+              </div>
+            </div>
+
+            {/* Auto-submit preview */}
+            {isInClassGraded && (
+              <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                <div className="flex items-start gap-2">
+                  <CheckCircle className="h-5 w-5 text-blue-600 mt-0.5 flex-shrink-0" />
+                  <div className="space-y-2">
+                    <h4 className="font-medium text-blue-800">Auto-Submit Enabled</h4>
+                    <p className="text-sm text-blue-700">
+                      When this assignment is created, submissions will be automatically generated for all students in the class.
+                    </p>
+                    <div className="text-xs text-blue-600 space-y-1">
+                      <p>✅ All students will have placeholder submissions</p>
+                      <p>✅ You can grade each student individually</p>
+                      <p>✅ Students can still submit additional work if needed</p>
+                      <p>✅ Perfect for in-class activities and participation grades</p>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
           </CardContent>
         </Card>
 
@@ -416,6 +487,8 @@ export const AssignmentCreation: React.FC<AssignmentCreationProps> = ({
           </Button>
         </div>
       </form>
+
+
     </div>
   );
 };

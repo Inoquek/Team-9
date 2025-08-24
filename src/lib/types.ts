@@ -166,6 +166,7 @@ export interface Submission {
   studyTimeToday: number; // Total study time for the day when submitted
   isInClassGrade?: boolean; // New: indicates if this was graded in-class
   submittedBy?: 'parent' | 'teacher'; // New: who created the submission
+  isPlaceholder?: boolean; // New: indicates if this is a placeholder submission for teacher grading
 }
 
 export interface SubmissionFile {

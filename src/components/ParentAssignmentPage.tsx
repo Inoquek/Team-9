@@ -134,6 +134,16 @@ export const ParentAssignmentPage: React.FC<ParentAssignmentPageProps> = ({ onNa
         // Get existing submissions for the student
         const studentSubmissions = await SubmissionService.getStudentSubmissions(studentDoc.id);
         console.log('Loaded student submissions:', studentSubmissions);
+        console.log('Student ID:', studentDoc.id);
+        console.log('Submissions details:', studentSubmissions.map(s => ({
+          id: s.id,
+          assignmentId: s.assignmentId,
+          status: s.status,
+          isPlaceholder: s.isPlaceholder,
+          submittedBy: s.submittedBy,
+          studentId: s.studentId,
+          parentId: s.parentId
+        })));
         setSubmissions(studentSubmissions);
 
         // Load completion times from submissions
@@ -194,6 +204,14 @@ export const ParentAssignmentPage: React.FC<ParentAssignmentPageProps> = ({ onNa
 
   const getSubmissionStatus = (assignmentId: string) => {
     const submission = submissions.find(sub => sub.assignmentId === assignmentId);
+    console.log(`getSubmissionStatus for assignment ${assignmentId}:`, {
+      submission,
+      submissionId: submission?.id,
+      status: submission?.status,
+      isPlaceholder: submission?.isPlaceholder,
+      submittedBy: submission?.submittedBy,
+      allSubmissions: submissions.map(s => ({ id: s.id, assignmentId: s.assignmentId, status: s.status, isPlaceholder: s.isPlaceholder }))
+    });
     if (!submission) return 'not_started';
     return submission.status;
   };
@@ -212,6 +230,12 @@ export const ParentAssignmentPage: React.FC<ParentAssignmentPageProps> = ({ onNa
     if (!submission) return true; // No submission = not started
     // Assignment is not started if not yet approved/completed
     return submission.status !== 'approved' && submission.status !== 'completed';
+  };
+
+  // Helper function to check if assignment has a placeholder submission (teacher-created)
+  const hasPlaceholderSubmission = (assignmentId: string) => {
+    const submission = submissions.find(sub => sub.assignmentId === assignmentId);
+    return submission && (submission.isPlaceholder || submission.submittedBy === 'teacher');
   };
 
   // Helper function to toggle assignment expansion
@@ -511,8 +535,8 @@ export const ParentAssignmentPage: React.FC<ParentAssignmentPageProps> = ({ onNa
                       {assignment.description}
                     </p>
 
-                  {/* Study Timer */}
-                  {!hasTimer && status === 'not_started' && (
+                  {/* Study Timer - Only show if not a placeholder submission */}
+                  {!hasTimer && status === 'not_started' && !hasPlaceholderSubmission(assignment.id) && (
                     <Button
                       onClick={() => setActiveTimer(assignment.id)}
                       className="w-full"
@@ -541,9 +565,22 @@ export const ParentAssignmentPage: React.FC<ParentAssignmentPageProps> = ({ onNa
                     </div>
                   )}
 
+                  {/* In-Class Assignment Notice */}
+                  {hasPlaceholderSubmission(assignment.id) && (
+                    <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
+                      <div className="flex items-center gap-2 text-sm text-blue-800">
+                        <CheckCircle className="h-4 w-4" />
+                        <span className="font-medium">In-Class Assignment</span>
+                      </div>
+                      <p className="text-xs text-blue-600 mt-1">
+                        This assignment was completed in class. Your teacher will grade it based on your in-class performance.
+                      </p>
+                    </div>
+                  )}
+
                   {/* Action Buttons */}
                   <div className="flex gap-2">
-                    {status === 'not_started' && completionTime > 0 && (
+                    {status === 'not_started' && completionTime > 0 && !hasPlaceholderSubmission(assignment.id) && (
                       <Button
                         onClick={() => setShowSubmissionForm(assignment.id)}
                         className="flex-1"

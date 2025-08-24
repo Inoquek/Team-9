@@ -169,12 +169,100 @@ export const InClassGradeForm: React.FC<InClassGradeFormProps> = ({
           </Badge>
         </CardTitle>
         <p className="text-muted-foreground">
-          Record grades for students who performed well in class. Students with 0 points will not be graded.
+          Record individual grades for each student based on their in-class performance. 
+          Students with 0 points will not be graded. You can give different grades to different students.
         </p>
       </CardHeader>
       <CardContent className="space-y-6">
         {/* Students Grades Table */}
         <div className="space-y-4">
+          <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
+            <div className="flex items-start gap-2">
+              <Star className="h-4 w-4 text-blue-600 mt-0.5 flex-shrink-0" />
+              <div className="text-sm text-blue-800">
+                <p className="font-medium">Individual Grading</p>
+                <p>Each student can receive different grades based on their individual performance. 
+                Set points from 0 to {maxPoints} for each student. Students with 0 points will not be graded.</p>
+              </div>
+            </div>
+          </div>
+          
+          {/* Quick Grading Presets */}
+          <div className="bg-muted p-3 rounded-lg">
+            <div className="flex items-center gap-2 mb-2">
+              <span className="text-sm font-medium">Quick Grading:</span>
+              <span className="text-xs text-muted-foreground">Click to apply grade patterns</span>
+            </div>
+            <div className="flex flex-wrap gap-2">
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={() => {
+                  setGrades(prev => prev.map(grade => ({
+                    ...grade,
+                    points: Math.round(maxPoints * 0.9) // 90%
+                  })));
+                }}
+                className="text-xs"
+              >
+                All Excellent (90%)
+              </Button>
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={() => {
+                  setGrades(prev => prev.map(grade => ({
+                    ...grade,
+                    points: Math.round(maxPoints * 0.8) // 80%
+                  })));
+                }}
+                className="text-xs"
+              >
+                All Good (80%)
+              </Button>
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={() => {
+                  setGrades(prev => prev.map(grade => ({
+                    ...grade,
+                    points: Math.round(maxPoints * 0.7) // 70%
+                  })));
+                }}
+                className="text-xs"
+              >
+                All Satisfactory (70%)
+              </Button>
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={() => {
+                  setGrades(prev => prev.map(grade => ({
+                    ...grade,
+                    points: 0
+                  })));
+                }}
+                className="text-xs"
+              >
+                Clear All Grades
+              </Button>
+            </div>
+          </div>
+          
+          {/* Example Row */}
+          <div className="bg-green-50 border border-green-200 rounded-lg p-3">
+            <div className="flex items-center gap-2 mb-2">
+              <CheckCircle className="h-4 w-4 text-green-600" />
+              <span className="text-sm font-medium text-green-800">Example: Different Grades for Different Students</span>
+            </div>
+            <div className="text-xs text-green-700 space-y-1">
+              <p>• Student A: 95 points (95%) - Outstanding participation and completed all tasks</p>
+              <p>• Student B: 85 points (85%) - Good effort, completed most tasks correctly</p>
+              <p>• Student C: 70 points (70%) - Satisfactory work, some areas need improvement</p>
+              <p>• Student D: 0 points - Not graded (didn't participate or complete work)</p>
+            </div>
+          </div>
+          
           <div className="grid grid-cols-12 gap-4 font-medium text-sm border-b pb-2">
             <div className="col-span-3">Student</div>
             <div className="col-span-2">Points</div>
@@ -244,18 +332,49 @@ export const InClassGradeForm: React.FC<InClassGradeFormProps> = ({
 
         {/* Summary */}
         <div className="bg-muted p-4 rounded-lg">
-          <div className="flex items-center justify-between">
-            <div className="text-sm text-muted-foreground">
-              Students to be graded: <span className="font-medium text-foreground">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div className="text-center">
+              <div className="text-2xl font-bold text-primary">
                 {grades.filter(g => g.points > 0).length}
-              </span> of {students.length}
+              </div>
+              <div className="text-sm text-muted-foreground">
+                Students to be graded
+              </div>
             </div>
-            <div className="text-sm text-muted-foreground">
-              Total points to award: <span className="font-medium text-foreground">
+            <div className="text-center">
+              <div className="text-2xl font-bold text-green-600">
                 {grades.reduce((sum, g) => sum + g.points, 0)}
-              </span>
+              </div>
+              <div className="text-sm text-muted-foreground">
+                Total points to award
+              </div>
+            </div>
+            <div className="text-center">
+              <div className="text-2xl font-bold text-blue-600">
+                {grades.filter(g => g.points > 0).length > 0 
+                  ? Math.round(grades.filter(g => g.points > 0).reduce((sum, g) => sum + g.points, 0) / grades.filter(g => g.points > 0).length)
+                  : 0
+                }
+              </div>
+              <div className="text-sm text-muted-foreground">
+                Average points per graded student
+              </div>
             </div>
           </div>
+          
+          {/* Grade Distribution */}
+          {grades.filter(g => g.points > 0).length > 0 && (
+            <div className="mt-4 pt-4 border-t">
+              <h4 className="text-sm font-medium mb-2">Grade Distribution:</h4>
+              <div className="flex flex-wrap gap-2">
+                {grades.filter(g => g.points > 0).map((grade) => (
+                  <Badge key={grade.studentId} variant="outline" className="text-xs">
+                    {grade.studentName}: {grade.points}/{maxPoints} ({Math.round((grade.points / maxPoints) * 100)}%)
+                  </Badge>
+                ))}
+              </div>
+            </div>
+          )}
         </div>
 
         {/* Action Buttons */}
