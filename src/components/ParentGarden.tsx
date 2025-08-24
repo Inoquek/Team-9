@@ -4,6 +4,7 @@ import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import { Button } from "@/components/ui/button";
 import { Sprout, Apple, Award, Users, TrendingUp, Clock, BookOpen, Eye, EyeOff, Crown, Medal, Star, Trophy, Target } from "lucide-react";
+import { PlantGrowthVisualizer } from "./ui/PlantGrowthVisualizer";
 
 import { useAuth } from "@/contexts/AuthContext";
 import { GardenService } from "@/lib/services/garden";
@@ -223,35 +224,13 @@ export const ParentGarden = () => {
           <CardContent>
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
               {ownChildrenData.map((child) => (
-                <Card key={child.id} className="border-2 border-emerald-200 bg-emerald-50/30">
-                  <CardHeader className="pb-3">
-                    <CardTitle className="flex items-center gap-2 text-lg">
-                      <Sprout className="h-5 w-5 text-emerald-600" />
-                      <span>{child.name}</span>
-                      <Badge className={getStageBadgeClass(child.stage)}>
-                        {getStageLabel(child.stage)}
-                      </Badge>
-                    </CardTitle>
-                  </CardHeader>
-                  <CardContent className="space-y-3">
-                    <div className="flex items-center justify-between text-sm">
-                      <span>Progress</span>
-                      <span className="text-muted-foreground">{child.completionRate}%</span>
-                    </div>
-                    <Progress value={child.completionRate} />
-                    
-                    <div className="text-xs text-muted-foreground">
-                      {child.completedAssignments}/{child.totalAssignments} assignments completed
-                    </div>
-
-                    {child.completionRate >= 100 && (
-                      <div className="flex items-center gap-2 text-emerald-700 text-sm">
-                        <Apple className="h-4 w-4" />
-                        Ripe! Great job 🎉
-                      </div>
-                    )}
-                  </CardContent>
-                </Card>
+                <PlantGrowthVisualizer
+                  key={child.id}
+                  stage={child.stage}
+                  completionRate={child.completionRate}
+                  studentName={child.name}
+                  className="border-2 border-emerald-200"
+                />
               ))}
             </div>
           </CardContent>
@@ -346,6 +325,24 @@ export const ParentGarden = () => {
                         <p className="text-sm text-muted-foreground mb-3">
                           out of {allKindergartenStudents.length} students
                         </p>
+                        
+                        {/* Plant Growth Visualization */}
+                        <div className="mb-3">
+                          <div className="text-4xl mb-2">
+                            {(() => {
+                              const stageEmojis = {
+                                'fruiting': '🍎', 'blooming': '🌻', 'flowering': '🌸', 
+                                'budding': '🌺', 'sprout': '🌳', 'growing': '🌿', 
+                                'seedling': '🌿', 'germinating': '🌱', 'seed': '🌱'
+                              };
+                              return stageEmojis[child.stage] || '🌱';
+                            })()}
+                          </div>
+                          <Badge className={getStageBadgeClass(child.stage)}>
+                            {getStageLabel(child.stage)}
+                          </Badge>
+                        </div>
+                        
                         <div className="text-2xl font-bold text-green-600 mb-2">
                           {child.completionRate}%
                         </div>
@@ -354,9 +351,6 @@ export const ParentGarden = () => {
                           value={child.completionRate} 
                           className="h-2 mb-3"
                         />
-                        <Badge className={getStageBadgeClass(child.stage)}>
-                          {getStageLabel(child.stage)}
-                        </Badge>
                       </div>
 
                       {/* Improvement Potential Section */}
@@ -522,24 +516,49 @@ export const ParentGarden = () => {
                     {/* Performance Distribution */}
                     <div className="space-y-2">
                       <p className="text-sm font-medium">Performance Distribution:</p>
-                      <div className="grid grid-cols-4 gap-2 text-center">
+                      <div className="grid grid-cols-3 gap-2 text-center">
                         <div>
-                          <Badge className="bg-emerald-100 text-emerald-700 text-xs">
+                          <Badge className="bg-red-100 text-red-700 text-xs">
+                            {summary.performanceDistribution.fruiting} Fruiting
+                          </Badge>
+                        </div>
+                        <div>
+                          <Badge className="bg-yellow-100 text-yellow-700 text-xs">
                             {summary.performanceDistribution.blooming} Blooming
                           </Badge>
                         </div>
                         <div>
-                          <Badge className="bg-lime-100 text-lime-700 text-xs">
+                          <Badge className="bg-purple-100 text-purple-700 text-xs">
+                            {summary.performanceDistribution.flowering} Flowering
+                          </Badge>
+                        </div>
+                        <div>
+                          <Badge className="bg-blue-100 text-blue-700 text-xs">
+                            {summary.performanceDistribution.budding} Budding
+                          </Badge>
+                        </div>
+                        <div>
+                          <Badge className="bg-emerald-100 text-emerald-700 text-xs">
                             {summary.performanceDistribution.sprout} Sprout
                           </Badge>
                         </div>
                         <div>
-                          <Badge className="bg-amber-100 text-amber-700 text-xs">
+                          <Badge className="bg-emerald-100 text-emerald-700 text-xs">
+                            {summary.performanceDistribution.growing} Growing
+                          </Badge>
+                        </div>
+                        <div>
+                          <Badge className="bg-blue-100 text-blue-700 text-xs">
                             {summary.performanceDistribution.seedling} Seedling
                           </Badge>
                         </div>
                         <div>
-                          <Badge className="bg-slate-100 text-slate-700 text-xs">
+                          <Badge className="bg-green-100 text-green-700 text-xs">
+                            {summary.performanceDistribution.germinating} Germinating
+                          </Badge>
+                        </div>
+                        <div>
+                          <Badge className="bg-gray-100 text-gray-700 text-xs">
                             {summary.performanceDistribution.seed} Seed
                           </Badge>
                         </div>
@@ -614,9 +633,14 @@ export const ParentGarden = () => {
 // Helper functions
 function getStageLabel(stage: string): string {
   switch (stage) {
+    case 'fruiting': return 'Fruiting';
     case 'blooming': return 'Blooming';
+    case 'flowering': return 'Flowering';
+    case 'budding': return 'Budding';
     case 'sprout': return 'Sprout';
+    case 'growing': return 'Growing';
     case 'seedling': return 'Seedling';
+    case 'germinating': return 'Germinating';
     case 'seed': return 'Seed';
     default: return 'Unknown';
   }
@@ -624,10 +648,15 @@ function getStageLabel(stage: string): string {
 
 function getStageBadgeClass(stage: string): string {
   switch (stage) {
-    case 'blooming': return 'bg-emerald-100 text-emerald-700';
-    case 'sprout': return 'bg-lime-100 text-lime-700';
-    case 'seedling': return 'bg-amber-100 text-amber-700';
-    case 'seed': return 'bg-slate-100 text-slate-700';
+    case 'fruiting': return 'bg-red-100 text-red-700';
+    case 'blooming': return 'bg-yellow-100 text-yellow-700';
+    case 'flowering': return 'bg-purple-100 text-purple-700';
+    case 'budding': return 'bg-blue-100 text-blue-700';
+    case 'sprout': return 'bg-emerald-100 text-emerald-700';
+    case 'growing': return 'bg-emerald-100 text-emerald-700';
+    case 'seedling': return 'bg-blue-100 text-blue-700';
+    case 'germinating': return 'bg-green-100 text-green-700';
+    case 'seed': return 'bg-gray-100 text-gray-700';
     default: return 'bg-gray-100 text-gray-700';
   }
 }

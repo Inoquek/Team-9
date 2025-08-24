@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { 
@@ -16,7 +17,10 @@ import {
   Play,
   Target,
   TrendingUp,
-  Award
+  Award,
+  ChevronUp,
+  ChevronDown,
+  Upload
 } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';
@@ -86,6 +90,8 @@ export const ParentAssignmentPage: React.FC<ParentAssignmentPageProps> = ({ onNa
   const [showSubmissionForm, setShowSubmissionForm] = useState<string | null>(null);
   const [showStudyDashboard, setShowStudyDashboard] = useState(false);
   const [studentInfo, setStudentInfo] = useState<{ id: string; name: string } | null>(null);
+  const [filterStatus, setFilterStatus] = useState("all");
+  const [expandedAssignments, setExpandedAssignments] = useState<Set<string>>(new Set());
 
   // Load assignments and student info
   useEffect(() => {
@@ -125,14 +131,14 @@ export const ParentAssignmentPage: React.FC<ParentAssignmentPageProps> = ({ onNa
           setAssignments(classAssignments);
         }
 
-        // Get existing submissions
-        const userSubmissions = await SubmissionService.getParentSubmissions(user.uid);
-        console.log('Loaded submissions:', userSubmissions);
-        setSubmissions(userSubmissions);
+        // Get existing submissions for the student
+        const studentSubmissions = await SubmissionService.getStudentSubmissions(studentDoc.id);
+        console.log('Loaded student submissions:', studentSubmissions);
+        setSubmissions(studentSubmissions);
 
         // Load completion times from submissions
         const times: Record<string, number> = {};
-        userSubmissions.forEach(sub => {
+        studentSubmissions.forEach(sub => {
           times[sub.assignmentId] = sub.completionTimeMinutes || 0;
         });
         setCompletionTimes(times);
@@ -168,12 +174,13 @@ export const ParentAssignmentPage: React.FC<ParentAssignmentPageProps> = ({ onNa
     // Refresh submissions
     const refreshSubmissions = async () => {
       try {
-        const userSubmissions = await SubmissionService.getParentSubmissions(user!.uid);
-        setSubmissions(userSubmissions);
+        if (!studentInfo) return;
+        const studentSubmissions = await SubmissionService.getStudentSubmissions(studentInfo.id);
+        setSubmissions(studentSubmissions);
         
         // Update completion times
         const times: Record<string, number> = {};
-        userSubmissions.forEach(sub => {
+        studentSubmissions.forEach(sub => {
           times[sub.assignmentId] = sub.completionTimeMinutes || 0;
         });
         setCompletionTimes(times);
@@ -191,9 +198,40 @@ export const ParentAssignmentPage: React.FC<ParentAssignmentPageProps> = ({ onNa
     return submission.status;
   };
 
+  // Helper function to determine if assignment is completed from parent perspective
+  const isAssignmentCompleted = (assignmentId: string) => {
+    const submission = submissions.find(sub => sub.assignmentId === assignmentId);
+    if (!submission) return false;
+    // Assignment is completed if it's approved or explicitly marked as completed
+    return submission.status === 'approved' || submission.status === 'completed';
+  };
+
+  // Helper function to determine if assignment is incomplete (has work to do)
+  const isAssignmentIncomplete = (assignmentId: string) => {
+    const submission = submissions.find(sub => sub.assignmentId === assignmentId);
+    if (!submission) return true; // No submission = incomplete
+    // Assignment is incomplete if not yet approved/completed
+    return submission.status !== 'approved' && submission.status !== 'completed';
+  };
+
+  // Helper function to toggle assignment expansion
+  const toggleAssignmentExpansion = (assignmentId: string) => {
+    setExpandedAssignments(prev => {
+      const newSet = new Set(prev);
+      if (newSet.has(assignmentId)) {
+        newSet.delete(assignmentId);
+      } else {
+        newSet.add(assignmentId);
+      }
+      return newSet;
+    });
+  };
+
   const getStatusColor = (status: string) => {
     switch (status) {
-      case 'approved': return 'success';
+      case 'approved': 
+      case 'completed': return 'success';
+      case 'submitted':
       case 'pending': return 'warning';
       case 'needsRevision': return 'destructive';
       case 'not_started': return 'secondary';
@@ -203,7 +241,9 @@ export const ParentAssignmentPage: React.FC<ParentAssignmentPageProps> = ({ onNa
 
   const getStatusIcon = (status: string) => {
     switch (status) {
-      case 'approved': return <CheckCircle className="h-4 w-4" />;
+      case 'approved': 
+      case 'completed': return <CheckCircle className="h-4 w-4" />;
+      case 'submitted': return <Upload className="h-4 w-4" />;
       case 'pending': return <Clock className="h-4 w-4" />;
       case 'needsRevision': return <Target className="h-4 w-4" />;
       case 'not_started': return <BookOpen className="h-4 w-4" />;
@@ -223,8 +263,20 @@ export const ParentAssignmentPage: React.FC<ParentAssignmentPageProps> = ({ onNa
   };
 
   const filteredAssignments = assignments.filter(assignment => {
-    const status = getSubmissionStatus(assignment.id);
-    return status !== 'approved'; // Show only incomplete assignments
+    if (filterStatus === "all") return true;
+    if (filterStatus === "incomplete") {
+      return isAssignmentIncomplete(assignment.id);
+    }
+    if (filterStatus === "completed") {
+      return isAssignmentCompleted(assignment.id);
+    }
+    if (filterStatus === "active") {
+      return assignment.status === "active";
+    }
+    if (filterStatus === "archived") {
+      return assignment.status === "archived";
+    }
+    return true;
   });
 
   if (isLoading) {
@@ -286,6 +338,43 @@ export const ParentAssignmentPage: React.FC<ParentAssignmentPageProps> = ({ onNa
         />
       )}
 
+      {/* Filter Section */}
+      <div className="flex items-center justify-between">
+        <div className="flex items-center space-x-3">
+          <Select value={filterStatus} onValueChange={(v) => setFilterStatus(v)}>
+            <SelectTrigger className="w-44">
+              <SelectValue placeholder="Filter by status" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All Assignments</SelectItem>
+              <SelectItem value="active">Active</SelectItem>
+              <SelectItem value="incomplete">Incomplete</SelectItem>
+              <SelectItem value="completed">Completed</SelectItem>
+              <SelectItem value="archived">Archived</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
+        
+        {/* Filter Stats */}
+        <div className="text-sm text-muted-foreground">
+          {(() => {
+            const totalAssignments = assignments.length;
+            const completedCount = assignments.filter(a => isAssignmentCompleted(a.id)).length;
+            const incompleteCount = assignments.filter(a => isAssignmentIncomplete(a.id)).length;
+            
+            if (filterStatus === "all") {
+              return `Showing ${filteredAssignments.length} of ${totalAssignments} assignments`;
+            } else if (filterStatus === "completed") {
+              return `${completedCount} completed assignment${completedCount !== 1 ? 's' : ''}`;
+            } else if (filterStatus === "incomplete") {
+              return `${incompleteCount} incomplete assignment${incompleteCount !== 1 ? 's' : ''}`;
+            } else {
+              return `${filteredAssignments.length} ${filterStatus} assignment${filteredAssignments.length !== 1 ? 's' : ''}`;
+            }
+          })()}
+        </div>
+      </div>
+
       {/* Assignments Grid */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         {filteredAssignments.map((assignment) => {
@@ -312,24 +401,99 @@ export const ParentAssignmentPage: React.FC<ParentAssignmentPageProps> = ({ onNa
                     <div className="flex-1">
                       <CardTitle className="text-lg">{assignment.title}</CardTitle>
                       <div className="flex items-center gap-2 mt-2">
+                        {/* Student Progress Status */}
                         <Badge variant={getStatusColor(status) as any}>
                           {getStatusIcon(status)}
-                          {status === 'not_started' ? 'Not Started' : status}
+                          {(() => {
+                            switch (status) {
+                              case 'not_started': return 'Not Started';
+                              case 'submitted': return 'Submitted';
+                              case 'pending': return 'Under Review';
+                              case 'approved': return 'Completed';
+                              case 'completed': return 'Completed';
+                              case 'needsRevision': return 'Needs Revision';
+                              default: return status;
+                            }
+                          })()}
                         </Badge>
-                        <Badge variant="outline">{assignment.type}</Badge>
+                        
+                        {/* Assignment Type with Icon */}
+                        <Badge variant="outline" className="flex items-center gap-1">
+                          {(() => {
+                            const typeIcons = {
+                              'alphabet-time': '🔤',
+                              'vocabulary-time': '📚',
+                              'sight-words-time': '👁️',
+                              'reading-time': '📖',
+                              'post-programme-test': '📝'
+                            };
+                            return typeIcons[assignment.type] || '📋';
+                          })()}
+                          {assignment.type.replace(/-/g, ' ').replace(/\b\w/g, l => l.toUpperCase())}
+                        </Badge>
+                        
+                        {/* Points Badge */}
+                        <Badge variant="secondary" className="bg-blue-100 text-blue-700 border-blue-200">
+                          ⭐ {assignment.points} pts
+                        </Badge>
+                        
+                        {/* Due Date Status */}
+                        {(() => {
+                          const now = new Date();
+                          const dueDate = safeDateConversion(assignment.dueDate);
+                          const daysUntilDue = Math.ceil((dueDate.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
+                          
+                          if (daysUntilDue < 0) {
+                            return (
+                              <Badge variant="destructive" className="bg-red-100 text-red-700 border-red-200">
+                                ⏰ Overdue
+                              </Badge>
+                            );
+                          } else if (daysUntilDue <= 3) {
+                            return (
+                              <Badge variant="warning" className="bg-orange-100 text-orange-700 border-orange-200">
+                                ⏰ Due Soon
+                              </Badge>
+                            );
+                          } else if (daysUntilDue <= 7) {
+                            return (
+                              <Badge variant="outline" className="bg-yellow-100 text-yellow-600 border-yellow-200">
+                                📅 This Week
+                              </Badge>
+                            );
+                          }
+                          return null;
+                        })()}
                       </div>
                     </div>
-                    <div className="text-right text-sm text-muted-foreground">
-                      <div>Due: {safeDueDate.toLocaleDateString()}</div>
-                      <div>{assignment.points} points</div>
+                    <div className="flex items-center space-x-2">
+                      {/* Collapse/Expand Button */}
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => toggleAssignmentExpansion(assignment.id)}
+                        title={expandedAssignments.has(assignment.id) ? "Collapse" : "Expand"}
+                      >
+                        {expandedAssignments.has(assignment.id) ? (
+                          <ChevronUp className="h-4 w-4" />
+                        ) : (
+                          <ChevronDown className="h-4 w-4" />
+                        )}
+                      </Button>
+                      <div className="text-right text-sm text-muted-foreground">
+                        <div>Due: {safeDueDate.toLocaleDateString()}</div>
+                        <div>{assignment.points} points</div>
+                      </div>
                     </div>
                   </div>
                 </CardHeader>
                 
-                <CardContent className="space-y-4">
-                  <p className="text-sm text-muted-foreground">
-                    {assignment.description}
-                  </p>
+                {/* Collapsible Content */}
+                {expandedAssignments.has(assignment.id) ? (
+                  <CardContent className="space-y-4">
+                    <p className="text-sm text-muted-foreground">
+                      {assignment.description}
+                    </p>
 
                   {/* Study Timer */}
                   {!hasTimer && status === 'not_started' && (
@@ -395,7 +559,22 @@ export const ParentAssignmentPage: React.FC<ParentAssignmentPageProps> = ({ onNa
                     </Button>
                   )}
                 </CardContent>
-              </Card>
+              ) : (
+                <CardContent className="p-3">
+                  <div className="flex items-center justify-between text-sm text-muted-foreground">
+                    <span>{assignment.description.length > 100 ? `${assignment.description.substring(0, 100)}...` : assignment.description}</span>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => toggleAssignmentExpansion(assignment.id)}
+                      className="text-primary hover:text-primary"
+                    >
+                      Show More
+                    </Button>
+                  </div>
+                </CardContent>
+              )}
+            </Card>
             );
           } catch (error) {
             console.error('Error rendering assignment:', assignment.id, error);
@@ -425,11 +604,59 @@ export const ParentAssignmentPage: React.FC<ParentAssignmentPageProps> = ({ onNa
       {/* No Assignments Message */}
       {filteredAssignments.length === 0 && (
         <Card className="text-center py-12">
-          <Award className="h-12 w-12 mx-auto mb-4 text-muted-foreground" />
-          <h3 className="text-lg font-semibold mb-2">All Caught Up!</h3>
-          <p className="text-muted-foreground">
-            {studentInfo.name} has completed all available assignments. Great job!
-          </p>
+          {(() => {
+            if (filterStatus === "completed") {
+              return (
+                <>
+                  <CheckCircle className="h-12 w-12 mx-auto mb-4 text-green-600" />
+                  <h3 className="text-lg font-semibold mb-2">No Completed Assignments Yet</h3>
+                  <p className="text-muted-foreground">
+                    {studentInfo.name} hasn't completed any assignments yet. Keep working on them!
+                  </p>
+                </>
+              );
+            } else if (filterStatus === "incomplete") {
+              return (
+                <>
+                  <Award className="h-12 w-12 mx-auto mb-4 text-green-600" />
+                  <h3 className="text-lg font-semibold mb-2">All Caught Up!</h3>
+                  <p className="text-muted-foreground">
+                    {studentInfo.name} has completed all available assignments. Great job!
+                  </p>
+                </>
+              );
+            } else if (filterStatus === "active") {
+              return (
+                <>
+                  <BookOpen className="h-12 w-12 mx-auto mb-4 text-muted-foreground" />
+                  <h3 className="text-lg font-semibold mb-2">No Active Assignments</h3>
+                  <p className="text-muted-foreground">
+                    There are no active assignments at the moment.
+                  </p>
+                </>
+              );
+            } else if (filterStatus === "archived") {
+              return (
+                <>
+                  <BookOpen className="h-12 w-12 mx-auto mb-4 text-muted-foreground" />
+                  <h3 className="text-lg font-semibold mb-2">No Archived Assignments</h3>
+                  <p className="text-muted-foreground">
+                    There are no archived assignments to show.
+                  </p>
+                </>
+              );
+            } else {
+              return (
+                <>
+                  <BookOpen className="h-12 w-12 mx-auto mb-4 text-muted-foreground" />
+                  <h3 className="text-lg font-semibold mb-2">No Assignments Found</h3>
+                  <p className="text-muted-foreground">
+                    No assignments have been created for {studentInfo.name}'s class yet.
+                  </p>
+                </>
+              );
+            }
+          })()}
         </Card>
       )}
 

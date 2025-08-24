@@ -14,8 +14,10 @@ import { AssignmentService } from "@/lib/services/assignments";
 import { AnnouncementService } from "@/lib/services/announcements";
 import { Assignment, Announcement } from "@/lib/types";
 
+type CurrentPage = "dashboard" | "assignments" | "announcements" | "metrics" | "parentGarden" | "forum";
+
 interface TeacherDashboardProps {
-  onNavigate: (page: "assignments" | "announcements" | "garden") => void;
+  onNavigate: (page: CurrentPage) => void;
 }
 
 interface TeacherClass {
@@ -229,8 +231,8 @@ export const TeacherDashboard = ({ onNavigate }: TeacherDashboardProps) => {
 
   const getViewTitle = () => {
     switch (currentView) {
-      case 'createAssignment': return 'Create New Assignment';
-      case 'createAnnouncement': return 'Create New Announcement';
+      case 'createAssignment': return ''; // Empty string since AssignmentCreation has its own title
+      case 'createAnnouncement': return ''; // Empty string since AnnouncementCreation has its own title
       default: return 'Admin Tools';
     }
   };
@@ -336,10 +338,26 @@ export const TeacherDashboard = ({ onNavigate }: TeacherDashboardProps) => {
 
         {/* Content Area */}
         <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center justify-between">
-              <span>{getViewTitle()}</span>
-              {currentView !== 'dashboard' && (
+          {getViewTitle() ? (
+            <CardHeader>
+              <CardTitle className="flex items-center justify-between">
+                <span>{getViewTitle()}</span>
+                {currentView !== 'dashboard' && (
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => setCurrentView('dashboard')}
+                    className="h-8 w-8 p-0 hover:bg-muted"
+                  >
+                    <span className="text-lg">×</span>
+                  </Button>
+                )}
+              </CardTitle>
+            </CardHeader>
+          ) : currentView !== 'dashboard' ? (
+            // Show just the close button when there's no title
+            <CardHeader className="pb-2">
+              <div className="flex justify-end">
                 <Button
                   variant="ghost"
                   size="sm"
@@ -348,9 +366,9 @@ export const TeacherDashboard = ({ onNavigate }: TeacherDashboardProps) => {
                 >
                   <span className="text-lg">×</span>
                 </Button>
-              )}
-            </CardTitle>
-          </CardHeader>
+              </div>
+            </CardHeader>
+          ) : null}
           <CardContent>
             {currentView === 'createAssignment' && selectedClass ? (
               <AssignmentCreation 

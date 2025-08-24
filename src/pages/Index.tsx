@@ -1,11 +1,11 @@
-import { useState, useCallback } from "react";
+import { useState, useCallback, useEffect } from "react";
 import { LoginPage } from "@/components/LoginPage";
 import { ParentDashboard } from "@/components/ParentDashboard";
 import { TeacherDashboard } from "@/components/TeacherDashboard";
 import { AdminDashboard } from "@/components/AdminDashboard";
 import { AssignmentPage } from "@/components/AssignmentPage";
 import { AnnouncementPage } from "@/components/AnnouncementPage";
-import GardenGame from "@/components/GardenGame";
+
 import { ParentGarden } from "@/components/ParentGarden";
 import { ForumPage } from "@/components/ForumPage"; // 添加Forum导入
 import { AppSidebar, TopBar } from "@/components/Navigation";
@@ -14,19 +14,55 @@ import { useAuth } from "@/contexts/AuthContext";
 import { TeacherClassProvider } from "@/contexts/TeacherClassContext";
 import { Metrics } from "@/components/Metrics";
 
-type CurrentPage = "dashboard" | "assignments" | "announcements" | "metrics" | "garden" | "parentGarden" | "forum"; // 添加forum
+type CurrentPage = "dashboard" | "assignments" | "announcements" | "metrics" | "parentGarden" | "forum"; // 添加forum
 
 const Index = () => {
   const { user, loading } = useAuth();
   const [currentPage, setCurrentPage] = useState<CurrentPage>("dashboard");
   const [badgeCounts, setBadgeCounts] = useState({ assignments: 0, announcements: 0 });
 
-  const handleNavigate = useCallback((page: CurrentPage) => {
-    setCurrentPage(page);
+  // Load badge counts from localStorage on component mount
+  useEffect(() => {
+    const savedBadgeCounts = localStorage.getItem('badgeCounts');
+    if (savedBadgeCounts) {
+      try {
+        const parsed = JSON.parse(savedBadgeCounts);
+        setBadgeCounts(parsed);
+      } catch (error) {
+        console.error('Error parsing saved badge counts:', error);
+      }
+    }
   }, []);
+
+
+
+  const handleClearBadge = useCallback((type: 'assignments' | 'announcements') => {
+    setBadgeCounts(prev => {
+      const newCounts = {
+        ...prev,
+        [type]: 0
+      };
+      // Save to localStorage
+      localStorage.setItem('badgeCounts', JSON.stringify(newCounts));
+      return newCounts;
+    });
+  }, []);
+
+  const handleNavigate = useCallback((page: CurrentPage) => {
+    // Clear badges when navigating to pages with notifications
+    if (page === 'assignments' && badgeCounts.assignments > 0) {
+      handleClearBadge('assignments');
+    } else if (page === 'announcements' && badgeCounts.announcements > 0) {
+      handleClearBadge('announcements');
+    }
+    
+    setCurrentPage(page);
+  }, [badgeCounts, handleClearBadge]);
 
   const handleBadgeCountsUpdate = useCallback((counts: { assignments: number; announcements: number }) => {
     setBadgeCounts(counts);
+    // Save to localStorage
+    localStorage.setItem('badgeCounts', JSON.stringify(counts));
   }, []);
 
   // Show loading spinner while checking auth
@@ -53,6 +89,7 @@ const Index = () => {
             currentPage={currentPage}
             onNavigate={handleNavigate}
             badgeCounts={badgeCounts}
+            onClearBadge={handleClearBadge}
           />
           
           <div className="flex-1 flex flex-col">
@@ -93,7 +130,7 @@ const Index = () => {
 
                 {currentPage === "metrics" && <Metrics />}
 
-                {currentPage === "garden" && <GardenGame />}
+
 
                 {currentPage === "parentGarden" && <ParentGarden />}
             </div>

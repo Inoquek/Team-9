@@ -236,7 +236,7 @@ function computeStreak(rows: DayRow[], metric: keyof DayRow, goal: number): Set<
 }
 
 interface ParentDashboardProps {
-  onNavigate: (page: "assignments" | "announcements" | "garden" | "parentGarden") => void;
+  onNavigate: (page: "assignments" | "announcements" | "parentGarden") => void;
   onBadgeCountsUpdate: (counts: { assignments: number; announcements: number }) => void;
 }
 
