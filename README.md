@@ -65,17 +65,6 @@ This application is fully responsive and follows a **mobile-first** design appro
 
 For detailed information about the mobile responsiveness implementation, see [MOBILE_RESPONSIVENESS.md](./MOBILE_RESPONSIVENESS.md).
 
-## How can I deploy this project?
-
-Simply open [Lovable](https://lovable.dev/projects/da22fca9-ed3c-48a1-ab25-bf0c12718bdf) and click on Share -> Publish.
-
-## Can I connect a custom domain to my Lovable project?
-
-Yes, you can!
-
-To connect a domain, navigate to Project > Settings > Domains and click Connect Domain.
-
-Read more here: [Setting up a custom domain](https://docs.lovable.dev/tips-tricks/custom-domain#step-by-step-guide)
 
 ## Firebase Setup & Deployment
 
