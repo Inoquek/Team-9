@@ -1900,15 +1900,7 @@ export const AssignmentPage = ({ userRole }: AssignmentPageProps) => {
                     {/* Check if assignment is already completed for this parent */}
                     {findSubmissionByAssignment(assignment.id) ? (
                       // Assignment completed - show completion status
-                      <div className="flex-1 p-4 bg-green-50 border border-green-200 rounded-lg">
-                        <div className="flex items-center gap-2 text-green-700">
-                          <CheckCircle className="h-5 w-5" />
-                          <span className="font-medium">Assignment Completed</span>
-                        </div>
-                        <p className="text-sm text-green-600 mt-1">
-                          Completed on {new Date(findSubmissionByAssignment(assignment.id)?.submittedAt || new Date()).toLocaleDateString()}
-                        </p>
-                      </div>
+                      <></>
                     ) : (
                       // Assignment not completed - show action buttons
                       <>
